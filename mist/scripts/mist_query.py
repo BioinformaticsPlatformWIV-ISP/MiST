@@ -187,8 +187,8 @@ def main(args_str: Optional[Sequence[str]] = None) -> None:
     """
     # Setup
     t0 = datetime.now()
-    check_dependencies(['minimap2'])
     args = _parse_args(args_str)
+    check_dependencies(['minimap2'])
     # Create the output directory before initializing logging
     if args.out_dir is not None:
         args.out_dir.mkdir(parents=True, exist_ok=True)
