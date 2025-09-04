@@ -35,6 +35,10 @@ dependencies = [
   "requests"
 ]
 
+[project.urls]
+Homepage = "https://github.com/BioinformaticsPlatformWIV-ISP/MiST"
+Issues = "https://github.com/BioinformaticsPlatformWIV-ISP/MiST/issues"
+
 [tool.setuptools.packages.find]
 include = ["mist*"]
 
