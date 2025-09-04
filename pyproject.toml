@@ -1,0 +1,70 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mist"
+dynamic = ["version"]
+description = "multi-locus sequence typing (MLST) and cgMLST"
+readme = "README.md"
+requires-python = ">=3"
+license = "GPL-3.0-or-later"
+
+authors = [
+  {name = "Bert Bogaerts", email = "bioit@sciensano.be"}
+]
+
+keywords = ["typing", "mlst", "phylogeny"]
+
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering :: Bio-Informatics",
+  "Programming Language :: Python :: 3",
+]
+
+dependencies = [
+  "PyYAML",
+  "biopython",
+  "bs4",
+  "furl",
+  "pandas",
+  "pytest",
+  "pytest-xdist",
+  "rauth",
+  "requests"
+]
+
+[tool.setuptools.packages.find]
+include = ["mist*"]
+
+[tool.setuptools.dynamic]
+version = {attr = "mist.version.__version__"}
+
+[tool.setuptools.package-data]
+"mist" = [
+  "resources/citation.txt",
+  "resources/pubmlst/download_bigsdb.py",
+  "resources/testdata/*.fasta",
+  "resources/testdata/output/*.tsv",
+  "resources/testdata/output/*.json"
+]
+
+[project.scripts]
+mist_download = "mist.scripts.mist_download:main"
+mist_index = "mist.scripts.mist_index:main"
+mist_query = "mist.scripts.mist_query:main"
+mlst_phylogeny = "mist.scripts.mlst_phylogeny:main"
+
+[tool.ruff.lint]
+select = ["D", "I", "F", "PL", "UP", "W"]
+ignore = [
+  "D100", "D104", "D200", "D204",
+  "D205", "D400", "D401", "PLW1510"
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+
+[tool.ruff.format]
+quote-style = "preserve"
