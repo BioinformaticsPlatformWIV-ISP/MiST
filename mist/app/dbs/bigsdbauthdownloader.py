@@ -16,6 +16,8 @@ class BIGSDbAuthDownloader(BaseDownloader):
     Downloader for BIGSdb databases with authentication.
     """
 
+    DOWNLOADER_KEY = 'bigsdb'
+
     def __init__(self, **kwargs: Any) -> None:
         """
         Initializes the downloader.
