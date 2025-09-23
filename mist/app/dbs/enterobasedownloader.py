@@ -16,6 +16,8 @@ class EnteroBaseDownloader(BaseDownloader):
     Downloads (cg)MLST schemes from EnteroBase.
     """
 
+    STATUS_CODE_OK = 200
+
     @staticmethod
     def extract_fasta_gz_urls(url: furl) -> list[furl]:
         """
@@ -23,7 +25,10 @@ class EnteroBaseDownloader(BaseDownloader):
         :param url: Base directory URL (as `furl`)
         :return: List of full URLs (as `furl`) to `.fasta.gz` files
         """
-        content = bs4.BeautifulSoup(requests.get(url.tostr()).text, 'html.parser')
+        response = requests.get(url.tostr())
+        if response.status_code != EnteroBaseDownloader.STATUS_CODE_OK:
+            raise RuntimeError(f'Error accessing: {url} (status code: {response.status_code})')
+        content = bs4.BeautifulSoup(response.text, 'html.parser')
         links = content.find_all('a')
         return [
             url.copy().add(path=a['href'])
@@ -45,6 +50,8 @@ class EnteroBaseDownloader(BaseDownloader):
 
         # Download and decompress
         response = requests.get(url.tostr(), stream=True)
+        if response.status_code != EnteroBaseDownloader.STATUS_CODE_OK:
+            raise RuntimeError(f'Error accessing: {url} (status code: {response.status_code})')
         with (
             gzip.GzipFile(fileobj=response.raw) as gzip_file,
             open(path_out, 'wb') as handle_out,
