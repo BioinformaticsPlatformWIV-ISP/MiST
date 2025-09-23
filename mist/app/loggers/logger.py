@@ -4,10 +4,10 @@ from pathlib import Path
 logger = logging.getLogger('MiST')
 
 
-def initialize_logging(dir_logs: Path | None = None, debug: bool = False) -> None:
+def initialize_logging(log_path: Path | None = None, debug: bool = False) -> None:
     """
     Initializes the logging.
-    :param dir_logs: Directory to store the log
+    :param log_path: Path to store the log
     :param debug: If true, enable debug mode
     :return: None
     """
@@ -21,8 +21,8 @@ def initialize_logging(dir_logs: Path | None = None, debug: bool = False) -> Non
     logger.addHandler(console_handler)
 
     # File handler (pacu.log file)
-    if dir_logs is not None:
-        file_handler = logging.FileHandler(dir_logs / 'mist.log')
+    if log_path is not None:
+        file_handler = logging.FileHandler(log_path)
         file_handler.setFormatter(formatter)
         file_handler.setLevel(logging.DEBUG)
         logger.addHandler(file_handler)

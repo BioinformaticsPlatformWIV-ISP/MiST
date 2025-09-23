@@ -1,17 +1,14 @@
-#!/usr/bin/env python
-import argparse
 import concurrent.futures
 import json
 import logging
 import re
 import shutil
-from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from Bio import SeqIO
 
-from mist.app.loggers.logger import initialize_logging, logger
+from mist.app.loggers.logger import logger
 from mist.app.utils import (
     clusterutils,
     dbutils,
@@ -20,7 +17,6 @@ from mist.app.utils import (
 )
 from mist.app.utils.clustersplit import ClusterSplit
 from mist.app.utils.dependencies import check_dependencies
-from mist.version import __version__
 
 
 class MistIndex:
@@ -37,6 +33,7 @@ class MistIndex:
         :param debug: Enable debug mode
         :return: None
         """
+        check_dependencies(['CD-HIT', 'minimap2', 'nucmer'])
         self._paths_fasta = paths_fasta
         self._path_profiles = path_profiles
         self._loci = [p.name.replace('.fasta', '') for p in paths_fasta]
@@ -153,6 +150,13 @@ class MistIndex:
         :param threads: Number of threads
         :return: None
         """
+        logger.info(f'Creating index for {len(self._paths_fasta):,} FASTA files')
+
+        # Create the output directory
+        dir_out = dir_out.expanduser().resolve()
+        dir_out.mkdir(parents=True, exist_ok=True)
+
+        # Extract representative alleles by clustering
         self._extract_repr_alleles(dir_out, threads)
         logger.info("Clustering completed successfully")
 
@@ -174,63 +178,3 @@ class MistIndex:
         if self._path_profiles:
             shutil.copyfile(self._path_profiles, dir_out / 'profiles.tsv')
         logger.info('Indexing finished successfully')
-
-
-def _parse_args(args: Optional[Sequence[str]] = None) -> argparse.Namespace:
-    """
-    Parses the command line arguments.
-    :return: Parsed arguments
-    """
-    parser = argparse.ArgumentParser()
-    group = parser.add_mutually_exclusive_group(required=True)
-    # Input
-    group.add_argument('-f', '--fasta', type=Path, nargs='+', help='Input FASTA path(s)')
-    group.add_argument('-l', '--fasta-list', type=Path, help='List with input FASTA path(s)')
-    parser.add_argument('-p', '--profiles', type=Path, help='TSV file with profiles')
-
-    # Output
-    parser.add_argument('-o', '--output', type=Path, required=True, help='Output directory')
-    parser.add_argument('--log', action='store_true', help="Save log to 'mist.log' in the output directory")
-
-    # Parameters
-    parser.add_argument('-c', '--cutoff', type=int, help='Clustering cutoff', default=95)
-    parser.add_argument('-t', '--threads', type=int, default=1, help='Nb. of threads to use')
-    parser.add_argument('--debug', action='store_true', help='Enable debug logging')
-
-    # Version
-    parser.add_argument('--version', help='Print version and exit', action='version', version=f'MiST {__version__}')
-    return parser.parse_args(args)
-
-
-def main(args_str: Optional[Sequence[str]] = None) -> None:
-    """
-    Main script.
-    :param args_str: Command line arguments (optional)
-    :return: None
-    """
-    # Parse the arguments
-    args = _parse_args(args_str)
-    check_dependencies(['CD-HIT', 'minimap2', 'nucmer'])
-    args.output = args.output.expanduser().resolve()
-    args.output.mkdir(parents=True, exist_ok=True)
-    initialize_logging(dir_logs=args.output if args.log else None, debug=args.debug)
-
-    # Get the input FASTA files
-    if args.fasta:
-        paths_fasta = args.fasta
-    elif args.fasta_list is not None:
-        with open(args.fasta_list) as handle:
-            paths_fasta = [Path(line.strip()) for line in handle.readlines() if len(line.strip()) > 0]
-    else:
-        raise ValueError('Either --fasta or --fasta-list should be specified')
-    if len(paths_fasta) == 0:
-        raise FileNotFoundError('No input FASTA path(s) found.')
-    logger.info(f'Creating index for {len(paths_fasta):,} FASTA files')
-
-    # Create the index
-    mist_index = MistIndex(paths_fasta, args.profiles, args.cutoff, debug=args.debug)
-    mist_index.create_index(args.output)
-
-
-if __name__ == '__main__':
-    main()

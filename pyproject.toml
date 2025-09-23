@@ -27,6 +27,7 @@ dependencies = [
   "PyYAML",
   "biopython",
   "bs4",
+  "click",
   "furl",
   "pandas",
   "pytest",
@@ -55,10 +56,7 @@ version = {attr = "mist.version.__version__"}
 ]
 
 [project.scripts]
-mist_download = "mist.scripts.mist_download:main"
-mist_index = "mist.scripts.mist_index:main"
-mist_query = "mist.scripts.mist_query:main"
-mlst_phylogeny = "mist.scripts.mlst_phylogeny:main"
+mist = "mist.scripts.cli:cli"
 
 [tool.ruff.lint]
 select = ["D", "I", "F", "PL", "UP", "W"]

@@ -41,7 +41,7 @@ class BaseDownloader(metaclass=abc.ABCMeta):
         self._download(url, dir_out, include_profiles)
         logger.info(
             f'You can create the index using:\n'
-            f"mlst_index --fasta-list {dir_out / 'fasta_list.txt'} --dir-out DB_NAME --threads 4")
+            f"mist index --fasta-list {dir_out / 'fasta_list.txt'} --output DB_NAME --threads 4")
 
     def create_fasta_list(self, paths_fasta: list[Path]) -> None:
         """
