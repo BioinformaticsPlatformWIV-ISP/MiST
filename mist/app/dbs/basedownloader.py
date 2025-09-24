@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 from typing import Any, Optional, ClassVar
 
+from furl import furl
+
 from mist.app import NAME_DB_INFO
 from mist.app.loggers.logger import logger
 
@@ -64,7 +66,7 @@ class BaseDownloader(metaclass=abc.ABCMeta):
     def export_metadata_file(self, url: str) -> None:
         """
         Exports the database metadata file.
-        :param url: SCheme url
+        :param url: Scheme url
         :return: None
         """
         path_out = self.dir_out / NAME_DB_INFO
@@ -75,3 +77,12 @@ class BaseDownloader(metaclass=abc.ABCMeta):
                 'download_date': datetime.datetime.now().isoformat(),
             }, handle, indent=2)
         logger.debug(f'DB info exported to: {path_out}')
+
+    def get_available_schemes(self, base_url: furl, **kwargs: Any) -> list[tuple[str, str]]:
+        """
+        Retrieves the available schemes that can be downloaded.
+        :param base_url: Base URL
+        :param kwargs: Keyword arguments
+        :return: List of available schemes
+        """
+        return []

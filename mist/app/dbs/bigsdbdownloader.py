@@ -1,6 +1,8 @@
 from pathlib import Path
 from typing import Any
 
+import bs4
+import requests
 from furl import furl
 
 from mist.app.dbs.basedownloader import BaseDownloader
@@ -14,7 +16,7 @@ class BIGSDbDownloader(BaseDownloader):
     Note: this downloader does **NOT** handle authorization and will not download all available data.
     """
 
-    DOWNLOADER_KEY = 'bigsdb_no_auth'
+    DOWNLOADER_KEY = 'bigsdb'
 
     def _download_fasta_files(self, metadata: dict[str, Any]) -> list[Path]:
         """
@@ -61,3 +63,29 @@ class BIGSDbDownloader(BaseDownloader):
         # Create a TXT file with all FASTA files
         self.create_fasta_list(paths_fasta)
         logger.info('Scheme downloaded successfully')
+
+    def get_available_schemes(self, base_url: furl, **kwargs: Any) -> list[tuple[str, str]]:
+        """
+        Retrieve a list of available cgMLST schemes and their URL.
+        :param base_url: Base URL
+        :param kwargs: Keyword arguments
+        :return: List of schemes / species and URL
+        """
+        data = restutils.retrieve_page_data(str(base_url))
+
+        # Species
+        schemes = []
+
+        if kwargs.get('species', False) is True:
+            for row in data.json():
+                # Retrieve the available species
+                try:
+                    db_info = next(d for d in row['databases'] if d['name'].endswith('_seqdef'))
+                except StopIteration:
+                    logger.debug(f"No SeqDef database found for: {row['description']}")
+                    continue
+                schemes.append((row['description'].strip(), db_info['href'].split('/')[-1]))
+        else:
+            for data_scheme in data.json()['schemes']:
+                schemes.append((data_scheme['description'], data_scheme['scheme']))
+        return schemes

@@ -2,6 +2,7 @@ import gzip
 import re
 import shutil
 from pathlib import Path
+from typing import Any
 
 import bs4
 import requests
@@ -106,3 +107,24 @@ class EnteroBaseDownloader(BaseDownloader):
         if include_profiles:
             EnteroBaseDownloader.download_profiles(dir_out, furl(url))
         logger.info(f'Scheme downloaded to: {dir_out}')
+
+    def get_available_schemes(self, base_url: furl, **kwargs: Any) -> list[tuple[str, str]]:
+        """
+        Retrieve a list of available cgMLST schemes and their URL.
+        :param base_url: Base URL
+        :param kwargs: Keyword arguments
+        :return: None
+        """
+        response = requests.get(str(base_url))
+        soup = bs4.BeautifulSoup(response.text, 'html.parser')
+        schemes = []
+        for a in soup.select('pre a'):
+            href = a.get('href')
+            name = a.get_text(strip=True).rstrip('/')
+
+            # Skip parent directory entry
+            if href == '../':
+                continue
+            url = base_url.copy().add(path=href)
+            schemes.append((name, str(url)))
+        return schemes
