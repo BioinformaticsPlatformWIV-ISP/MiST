@@ -13,6 +13,7 @@ from mist.scripts.mistcaller import MistCaller
 from mist.scripts.mistdists import MistDists
 from mist.scripts.mistdownload import MistDownload
 from mist.scripts.mistindex import MistIndex
+from mist.scripts.mistlist import MistList
 from mist.version import __version__
 
 
@@ -216,6 +217,26 @@ def dists(
         min_perc_samples=min_perc_samples
     )
     mist_dists.run()
+
+@cli.command(name='list')
+@click.option('-d', '--downloader', type=click.Choice(list(DOWNLOADERS.keys())), required=True, help="Downloader")
+@click.option('-h', '--host', help="Host name (required only if multiple hosts are available for this downloader).")
+@click.option('--db', type=str, help="BIGSdb only: database name")
+def list_(downloader: str, host: str | None, db: str) -> None:
+    """
+    Lists the available schemes that can be downloaded.
+    """
+    # Validate the arguments
+    if downloader in ('bigsdb', 'bigsdb_auth') and host is None:
+        raise click.UsageError("--host option is required for this downloader. Valid options: 'pubmlst' or 'pasteur'.")
+
+    # Retrieve available schemes
+    mist_list = MistList(
+        downloader=downloader,
+        host=host,
+        db=db
+    )
+    mist_list.print_available_schemes()
 
 
 if __name__ == "__main__":

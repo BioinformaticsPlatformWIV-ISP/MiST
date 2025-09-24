@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 import requests
+import bs4
 from furl import furl
 
 from mist.app.dbs.basedownloader import BaseDownloader
@@ -82,6 +83,7 @@ class CgMLSTOrgDownloader(BaseDownloader):
         """
         # Download the archive containing the FASTA files
         href_alleles = str(furl(url).add(path='alleles'))
+        logger.info('Starting download of FASTA files')
         path_fasta_arch = CgMLSTOrgDownloader.retrieve_fasta_archive(href_alleles, dir_out)
         paths_fasta = CgMLSTOrgDownloader.extract_fasta_files(path_fasta_arch, dir_out)
         logger.info(f"Found {len(paths_fasta):,} FASTA files")
@@ -96,3 +98,21 @@ class CgMLSTOrgDownloader(BaseDownloader):
         # Create a TXT file with all FASTA files
         self.create_fasta_list(paths_fasta)
         logger.info('Scheme downloaded successfully')
+
+    def get_available_schemes(self, base_url: furl, **kwargs: Any) -> list[tuple[str, str]]:
+        """
+        Retrieve a list of available cgMLST schemes and their URL.
+        :param base_url: Base URL
+        :param kwargs: Keyword arguments
+        :return: None
+        """
+        response = retrieve_page_data(str(base_url))
+        soup = bs4.BeautifulSoup(response.text, 'html.parser')
+        rows = soup.select('table.table.table-striped tbody tr')
+        schemes = []
+        for row in rows:
+            cells = row.select('td')
+            url = cells[0].a['href']
+            scheme_name = cells[0].get_text(strip=True)
+            schemes.append((scheme_name, url))
+        return schemes
