@@ -8,7 +8,7 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
-from mist.app import model
+from mist.app import model, NAME_DB_INFO
 from mist.app.loggers.logger import logger
 from mist.app.model import CustomEncoder
 from mist.app.query.allelequeryminimap import AlleleQueryMinimap2, MultiStrategy
@@ -113,7 +113,7 @@ class MistCaller:
             profile, pct_match = None, None
 
         # Create output files
-        self._export_json(result_by_locus, out_json, profile, pct_match)
+        self._export_json(result_by_locus, path_out=out_json, profile=profile, pct_match=pct_match)
         if self._export_novel and data_results['is_novel'].sum() > 0:
             logger.info("Exporting novel allele sequences")
             self._export_novel_allele_seqs(data_results, result_by_locus, out_dir)
@@ -122,7 +122,9 @@ class MistCaller:
         if out_tsv is not None:
             data_results.to_csv(out_tsv, sep='\t', index=False)
 
-    def _export_json(self, results_by_locus: dict[str, model.QueryResult], path_out: Path, profile: model.Profile, pct_match: float) -> None:
+    def _export_json(
+            self, results_by_locus: dict[str, model.QueryResult], path_out: Path, profile: model.Profile,
+            pct_match: float) -> None:
         """
         Exports the results in JSON format.
         :param results_by_locus: Result(s) by locus
@@ -131,6 +133,14 @@ class MistCaller:
         :param pct_match: Percent match for the profile
         :return: None
         """
+        # Parse the database information (if available)
+        path_db_info = self._dir_db / NAME_DB_INFO
+        if path_db_info.exists():
+            with path_db_info.open() as handle:
+                data_db = json.load(handle)
+        else:
+            data_db = None
+
         with open(path_out, 'w') as handle:
             json.dump({
                 'alleles': {locus: dataclasses.asdict(res) for locus, res in results_by_locus.items()},
@@ -138,6 +148,7 @@ class MistCaller:
                 'metadata': {
                     'timestamp': datetime.now().isoformat(),
                     'tool_version': __version__,
+                    'db': data_db
                 }
             }, handle, indent=2, cls=CustomEncoder)
         logger.info(f'Output stored in: {path_out}')

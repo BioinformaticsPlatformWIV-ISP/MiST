@@ -129,8 +129,6 @@ class TestCall(unittest.TestCase):
                 with open(path_json) as handle:
                     calls_out.append(json.load(handle))
 
-        import pprint
-        pprint.pprint(calls_out)
         self.assertEqual(
             calls_out[0]['alleles']['NEIS0140-subset']['allele_str'],
             calls_out[1]['alleles']['NEIS0140-subset']['allele_str'],

@@ -8,6 +8,7 @@ from typing import Any
 
 from Bio import SeqIO
 
+from mist.app import NAME_DB_INFO
 from mist.app.loggers.logger import logger
 from mist.app.utils import (
     clusterutils,
@@ -170,6 +171,7 @@ class MistIndex:
         logger.info(f'Combined FASTA file created: {path_fasta_out} ({nb_seqs:,} sequences)')
 
         # Create a TXT file with all loci
+        self._copy_db_info(dir_out)
         with open(dir_out / 'loci.txt', 'w') as handle:
             for locus in self._loci:
                 handle.write(locus + '\n')
@@ -178,3 +180,15 @@ class MistIndex:
         if self._path_profiles:
             shutil.copyfile(self._path_profiles, dir_out / 'profiles.tsv')
         logger.info('Indexing finished successfully')
+
+    def _copy_db_info(self, dir_out: Path) -> None:
+        """
+        Copies the database metadata information (if available).
+        :param dir_out: Output directory
+        :return: None
+        """
+        path_metadata = self._paths_fasta[0].parent / NAME_DB_INFO
+        if not path_metadata.exists():
+            logger.debug('No db_info.json file found, not copying DB metadata')
+            return
+        shutil.copyfile(path_metadata, dir_out / path_metadata.name)
