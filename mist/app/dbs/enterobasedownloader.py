@@ -16,6 +16,7 @@ class EnteroBaseDownloader(BaseDownloader):
     Downloads (cg)MLST schemes from EnteroBase.
     """
 
+    DOWNLOADER_KEY = 'enterobase'
     STATUS_CODE_OK = 200
 
     @staticmethod

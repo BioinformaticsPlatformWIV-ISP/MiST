@@ -16,6 +16,8 @@ class CgMLSTOrgDownloader(BaseDownloader):
     Downloader for cgMLST.org databases.
     """
 
+    DOWNLOADER_KEY = 'cgmlstorg'
+
     @staticmethod
     def retrieve_page_data(
         url: str, retries: int = 3, timeout: int = 60 * 5

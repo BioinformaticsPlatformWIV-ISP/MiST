@@ -14,6 +14,8 @@ class BIGSDbDownloader(BaseDownloader):
     Note: this downloader does **NOT** handle authorization and will not download all available data.
     """
 
+    DOWNLOADER_KEY = 'bigsdb_no_auth'
+
     def _download_fasta_files(self, metadata: dict[str, Any]) -> list[Path]:
         """
         Downloads the scheme FASTA files.
