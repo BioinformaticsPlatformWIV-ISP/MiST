@@ -12,6 +12,12 @@ import json
 import sys
 
 MISMATCH_CUTOFFS = [629, 610, 585, 190, 43, 10, 7, 4, 2, 1]
+METADATA = [
+    {'key': 'Phylogroup', 'bin_min': 2},
+    {'key': 'Sublineage', 'bin_min': 3},
+    {'key': 'Clonal group', 'bin_min': 4}
+]
+
 
 def determine_bin(nb_diff) -> int:
     """
@@ -43,6 +49,10 @@ if __name__ == '__main__':
     with open(sys.argv[1]) as handle:
         data_in = json.load(handle)
 
+    # Check if the input contains profile information
+    if data_in['profile'] is None:
+        raise ValueError('Profile information is missing')
+
     # Log the results
     best_matching_st = data_in['profile']['name']
     print(f'Best matching: scgST-{best_matching_st}')
@@ -54,10 +64,21 @@ if __name__ == '__main__':
         nb_matches = int(data_in['profile']['pct_match'] * nb_loci / 100)
     print(f'Number of matches: {nb_matches}/{nb_loci}')
 
-    lin_code = next(v for k, v in data_in['profile']['metadata'] if k == 'LINcode')
+    # Parse the ST metadata
+    metadata_st = {k: v for k, v in data_in['profile']['metadata']}
+    lin_code = metadata_st['LINcode']
     print(f'LINcode for scgMST-{best_matching_st}: {lin_code}')
 
     # Construct the partial LINcode
     bin_nb = determine_bin(nb_loci - nb_matches)
     partial_lin_code = create_lin_code(lin_code, bin_nb)
     print(f'Partial LINcode for input strain: {partial_lin_code}')
+
+    # Report the associated metadata
+    for metadata_col in METADATA:
+        value = data_in['profile']
+        if metadata_col['bin_min'] > bin_nb:
+            value = 'Cannot be determined'
+        else:
+            value = metadata_st[metadata_col['key']]
+        print(f"{metadata_col['key']}: {value}")
