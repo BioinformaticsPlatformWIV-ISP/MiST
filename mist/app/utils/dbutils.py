@@ -25,7 +25,7 @@ def _get_allele_id(seq_record: SeqIO.SeqRecord, locus_name: str) -> str:
     """
     if re.match(r'\d+', seq_record.id):
         return f'{locus_name}_{seq_record.id}'
-    if re.match(f'{locus_name}_\\d+', seq_record.id):
+    if re.match(f'{locus_name}_\\d+', seq_record.id, flags=re.IGNORECASE):
         return seq_record.id
     raise ValueError(f'Invalid sequencing input FASTA file: {seq_record.id}')
 
