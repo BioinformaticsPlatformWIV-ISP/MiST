@@ -60,7 +60,7 @@ class MistList:
             click.echo(
                 "IMPORTANT: Due to the large number of schemes hosted on PubMLST, they are grouped by species.\n"
                 "To list the available databases for a species, use:\n"
-                f"mist list --downloader {self._downloader_key} --host {self._host} --schemes --db {{DB}}\n"
+                f"mist list --downloader {self._downloader_key} --host {self._host} --db {{DB}}\n"
                 "where {DB} is the name of the database from the list above (with the '_seqdef' suffix)"
             )
         else:
