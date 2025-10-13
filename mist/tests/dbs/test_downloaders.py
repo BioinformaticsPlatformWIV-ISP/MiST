@@ -57,7 +57,7 @@ class TestDownloaders(unittest.TestCase):
         with testingutils.get_temp_dir() as dir_temp:
             downloader = CgMLSTOrgDownloader()
             downloader.download_scheme(
-                url='https://www.cgmlst.org/ncs/schema/Cjejuni5253/',
+                url='https://www.cgmlst.org/ncs/schema/Cjejuni22/',
                 dir_out=Path(dir_temp),
                 include_profiles=True)
             self.assertTrue(TestDownloaders.download_succeeded(Path(dir_temp), with_profiles=True))
