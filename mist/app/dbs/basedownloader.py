@@ -2,7 +2,7 @@ import abc
 import datetime
 import json
 from pathlib import Path
-from typing import Any, Optional, ClassVar
+from typing import Any, ClassVar, Optional
 
 from furl import furl
 
