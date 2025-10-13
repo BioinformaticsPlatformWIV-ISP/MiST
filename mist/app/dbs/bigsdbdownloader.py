@@ -1,8 +1,6 @@
 from pathlib import Path
 from typing import Any
 
-import bs4
-import requests
 from furl import furl
 
 from mist.app.dbs.basedownloader import BaseDownloader
