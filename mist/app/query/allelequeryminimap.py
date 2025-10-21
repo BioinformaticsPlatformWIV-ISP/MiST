@@ -226,7 +226,9 @@ class AlleleQueryMinimap2:
             path_fasta, self._dir_db / 'loci_repr.fasta', include_cigar=False, threads=threads)
         logger.info(f'{len(data_mm2):,} seed alignments')
         if self._save_minimap2:
-            data_mm2.to_csv(self._dir_out / 'minimap2_parsed.tsv', sep='\t', index=False)
+            path_out = self._dir_out / 'minimap2_parsed.tsv'
+            data_mm2.to_csv(path_out, sep='\t', index=False)
+            logger.info(f'Saved minimap2 output to: {path_out}')
 
         # Check for empty results
         if len(data_mm2) == 0:
