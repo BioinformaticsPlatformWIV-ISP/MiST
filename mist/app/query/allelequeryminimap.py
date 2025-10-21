@@ -93,6 +93,79 @@ class AlleleQueryMinimap2:
             overhang_right = x['slen'] - x['send']
             return x['qseqid'], x['qstart'] + 1 - overhang_right, x['qend'] + overhang_left
 
+    def _extract_exact_match(self, seq: str, row: pd.Series, data_locus: pd.DataFrame) -> model.AlleleResult | None:
+        """
+        Checks for an exact match.
+        :param seq: Allele sequence
+        :param row: Alignment record
+        :param data_locus: Locus data
+        :return: Match
+        """
+        allele = data_locus['hashes'].get(sequenceutils.hash_sequence(seq))
+        if allele is None:
+            allele = data_locus['hashes'].get(sequenceutils.hash_sequence(sequenceutils.rev_complement(seq)))
+        if allele is None:
+            return None
+        return model.AlleleResult(
+                allele=allele,
+                alignment=model.Alignment(
+                    seq_id=row['query_name'],
+                    start=row['query_start'],
+                    end=row['query_end'],
+                    strand=row['sstrand'],
+                ),
+            )
+
+    def _extract_partial_match(self, df_alignment: pd.DataFrame, locus_name: str) -> model.QueryResult | None:
+        """
+        Checks for an exact match.
+        :param df_alignment: Minimap2 alignment data
+        :param locus_name: Locus name
+        :return: Match
+        """
+        divergence = df_alignment['tag_dv'].str.rsplit(':', n=1).str[-1].astype(float)
+        best_idx = divergence.idxmin()
+        seq = self._seq_holder.get_seq(
+            df_alignment.loc[best_idx, 'query_name'],
+            df_alignment.loc[best_idx, 'query_start'],
+            df_alignment.loc[best_idx, 'query_end'],
+            df_alignment.loc[best_idx, 'sstrand'],
+        )
+        if len(seq) == 0:
+            # Allele coordinates extend beyond assembly boundaries —> likely contig edge
+            return model.QueryResult(model.ALLELE_MISSING, [], tags=[model.Tag.EDGE])
+
+        # Screen for imperfect matches
+        best_matching = ImperfectMatchDetector(self._dir_db / locus_name)
+        try:
+            seq_ids_closest = best_matching.retrieve_best_matching(seq, self._min_id_novel)
+        except InvalidLengthException:
+            return model.QueryResult(model.ALLELE_MISSING, [], tags=[model.Tag.INDEL])
+
+        # No imperfect hits to existing alleles found
+        if len(seq_ids_closest) == 0:
+            return model.QueryResult(model.ALLELE_MISSING, [], [])
+
+        # Potential novel allele
+        allele_hash = sequenceutils.hash_sequence(seq, rev_comp=df_alignment.loc[best_idx, 'sstrand'] == '-')
+        return model.QueryResult(
+            allele_str=f'n{allele_hash[:6]}',
+            allele_results=[
+                model.AlleleResult(
+                    allele=f'n{allele_hash[:6]}',
+                    alignment=model.Alignment(
+                        seq_id=df_alignment.loc[best_idx, 'query_name'],
+                        start=int(df_alignment.loc[best_idx, 'query_start']),
+                        end=int(df_alignment.loc[best_idx, 'query_end']),
+                        strand=df_alignment.loc[best_idx, 'sstrand'],
+                    ),
+                    sequence=seq,
+                    closest_alleles=seq_ids_closest,
+                )
+            ],
+            tags=[model.Tag.NOVEL],
+        )
+
     def _process_locus(self, locus_name: str, df_alignment: pd.DataFrame) -> model.QueryResult:
         """
         Types the input locus.
@@ -113,62 +186,23 @@ class AlleleQueryMinimap2:
             if (seq is None) or (len(seq) == 0):
                 continue
 
-            # Check for exact match
-            allele = data_locus['hashes'].get(sequenceutils.hash_sequence(seq))
-            if allele is None:
-                allele = data_locus['hashes'].get(sequenceutils.hash_sequence(sequenceutils.rev_complement(seq)))
-            if allele is None:
-                continue
-            matches.append(model.AlleleResult(
-                allele=allele,
-                alignment=model.Alignment(
-                    seq_id=row['query_name'],
-                    start=row['query_start'],
-                    end=row['query_end'],
-                    strand=row['sstrand']),
-                )
-            )
+            # Check for an exact match
+            match_perfect = self._extract_exact_match(seq, row, data_locus)
+            if match_perfect is not None:
+                matches.append(match_perfect)
+
+        # Check if perfect matches have been found
         matches.sort(key=lambda res: data_locus['alleles'][res.allele]['idx'])
         if len(matches) > 0:
-            return model.QueryResult(merge_results(matches, self._multi_strategy.value), allele_results=matches, tags=[])
+            return model.QueryResult(
+                merge_results(matches, self._multi_strategy.value),
+                allele_results=matches,
+                tags=[],
+            )
 
         # Check imperfect matches
         logger.debug(f'Screening for imperfect hits for: {locus_name}')
-        divergence = df_alignment['tag_dv'].str.rsplit(':', n=1).str[-1].astype(float)
-        best_idx = divergence.idxmin()
-        seq = self._seq_holder.get_seq(
-            df_alignment.loc[best_idx, 'query_name'],
-            df_alignment.loc[best_idx, 'query_start'],
-            df_alignment.loc[best_idx, 'query_end'],
-            df_alignment.loc[best_idx, 'sstrand'],
-        )
-        if len(seq) == 0:
-            return model.QueryResult(model.ALLELE_MISSING, [], tags=[model.Tag.EDGE])
-        best_matching = ImperfectMatchDetector(self._dir_db / locus_name)
-        try:
-            bms = best_matching.retrieve_best_matching(seq, self._min_id_novel)
-        except InvalidLengthException:
-            return model.QueryResult(model.ALLELE_MISSING, [], tags=[model.Tag.INDEL])
-
-        if len(bms) == 0:
-            # No imperfect hits found
-            return model.QueryResult(model.ALLELE_MISSING, [], [])
-        allele_hash = sequenceutils.hash_sequence(seq)
-        return model.QueryResult(
-            allele_str=f'n{allele_hash[:6]}',
-            allele_results=[model.AlleleResult(
-                allele=f'n{allele_hash[:6]}',
-                alignment=model.Alignment(
-                    seq_id=df_alignment.loc[best_idx, 'query_name'],
-                    start=int(df_alignment.loc[best_idx, 'query_start']),
-                    end=int(df_alignment.loc[best_idx, 'query_end']),
-                    strand=df_alignment.loc[best_idx, 'sstrand'],
-                ),
-                sequence=seq,
-                closest_alleles=bms,
-            )],
-            tags=[model.Tag.NOVEL]
-        )
+        return self._extract_partial_match(df_alignment, locus_name)
 
     def query(
             self,
