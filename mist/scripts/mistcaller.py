@@ -49,10 +49,26 @@ class MistCaller:
         :return: DataFrame
         """
         data_out = pd.DataFrame([{
+            # Main result
             'locus': locus,
             'allele': res.allele_str,
-        } for locus, res in result_by_locus.items()])
-        data_out['is_novel'] = data_out['allele'].str.startswith('n')
+            'length': ';'.join(str(x.length) for x in res.allele_results) if len(res.allele_results) > 0 else '-',
+
+            # Location in genome
+            'contig': ';'.join(x.alignment.seq_id for x in res.allele_results) if len(res.allele_results) > 0 else '-',
+            'start': ';'.join(str(x.alignment.start) for x in res.allele_results) if len(res.allele_results) > 0 else '-',
+            'end': ';'.join(str(x.alignment.end) for x in res.allele_results) if len(res.allele_results) > 0 else '-',
+            'strand': ';'.join(str(x.alignment.strand) for x in res.allele_results) if len(res.allele_results) > 0 else '-',
+
+            # Novel alleles
+            'is_novel': model.Tag.NOVEL in res.tags,
+            'closest_alleles': ';'.join(res.allele_results[0].closest_alleles) if model.Tag.NOVEL in res.tags else '-',
+
+            # Additional tags
+            'tags': ';'.join(t.value for t in res.tags) if len(res.tags) > 0 else '-'}
+            for locus, res in result_by_locus.items()
+        ])
+
         # noinspection PyTypeChecker,PyUnresolvedReferences
         nb_detected = (data_out['allele'] != '-').sum()
         nb_novel = data_out['is_novel'].sum()
@@ -74,7 +90,7 @@ class MistCaller:
         for locus in data_results[data_results['is_novel']]['locus']:
             dir_novel_alleles = dir_out / 'novel_alleles'
             dir_novel_alleles.mkdir(parents=True, exist_ok=True)
-            allele_id = res_by_locus[locus].allele_str
+            allele_id = res_by_locus[locus].allele_str.replace('*', '')
             with open(dir_novel_alleles / f'{locus}-{allele_id}.fasta', 'w') as handle:
                 SeqIO.write(SeqRecord(
                     id=f'{locus}_{allele_id}',
