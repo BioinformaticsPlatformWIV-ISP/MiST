@@ -107,14 +107,14 @@ class AlleleQueryMinimap2:
         if allele is None:
             return None
         return model.AlleleResult(
-                allele=allele,
-                alignment=model.Alignment(
-                    seq_id=row['query_name'],
-                    start=row['query_start'],
-                    end=row['query_end'],
-                    strand=row['sstrand'],
-                ),
-            )
+            allele=allele,
+            alignment=model.Alignment(
+                seq_id=row['query_name'],
+                start=row['query_start'],
+                end=row['query_end'],
+                strand=row['sstrand']),
+            length=len(seq)
+        )
 
     def _extract_partial_match(self, df_alignment: pd.DataFrame, locus_name: str) -> model.QueryResult | None:
         """
@@ -147,18 +147,20 @@ class AlleleQueryMinimap2:
             return model.QueryResult(model.ALLELE_MISSING, [], [])
 
         # Potential novel allele
-        allele_hash = sequenceutils.hash_sequence(seq, rev_comp=df_alignment.loc[best_idx, 'sstrand'] == '-')
+        allele_hash = sequenceutils.hash_sequence(seq, rev_comp=False)
+        allele_hash_shown = f'*{allele_hash[:4]}'
         return model.QueryResult(
-            allele_str=f'n{allele_hash[:6]}',
+            allele_str=allele_hash_shown,
             allele_results=[
                 model.AlleleResult(
-                    allele=f'n{allele_hash[:6]}',
+                    allele=allele_hash_shown,
                     alignment=model.Alignment(
                         seq_id=df_alignment.loc[best_idx, 'query_name'],
                         start=int(df_alignment.loc[best_idx, 'query_start']),
                         end=int(df_alignment.loc[best_idx, 'query_end']),
                         strand=df_alignment.loc[best_idx, 'sstrand'],
                     ),
+                    length=len(seq),
                     sequence=seq,
                     closest_alleles=seq_ids_closest,
                 )
@@ -197,7 +199,7 @@ class AlleleQueryMinimap2:
             return model.QueryResult(
                 merge_results(matches, self._multi_strategy.value),
                 allele_results=matches,
-                tags=[],
+                tags=[model.Tag.MULTI] if len(matches) > 1 else [model.Tag.EXACT],
             )
 
         # Check imperfect matches
@@ -233,12 +235,12 @@ class AlleleQueryMinimap2:
         # Check for empty results
         if len(data_mm2) == 0:
             logger.warning('No seed alignments found. Please verify that the correct scheme has been specified.')
-            return {locus: model.QueryResult(model.ALLELE_MISSING, [], []) for locus in all_loci}
+            return {locus: model.QueryResult(model.ALLELE_MISSING, [], tags=[model.Tag.ABSENT]) for locus in all_loci}
 
         # Extract loci
         data_mm2['locus'] = data_mm2['sseqid'].str.rsplit('_', n=1).str[0]
         nb_loci = len(data_mm2['locus'].unique())
-        logger.info(f"{nb_loci:,}/{len(all_loci)} loci aligned ({100*nb_loci/len(all_loci):.2f}%)")
+        logger.info(f"{nb_loci:,}/{len(all_loci):,} loci aligned ({100*nb_loci/len(all_loci):.2f}%)")
 
         # Calculate query string and remove duplicates
         data_mm2[['query_name', 'query_start', 'query_end']] = (
