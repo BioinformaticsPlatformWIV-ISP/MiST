@@ -123,13 +123,16 @@ class MistCaller:
         # Query the profiles
         if (self._dir_db / 'profiles.tsv').exists():
             profile_query = ProfileQuery(self._dir_db / 'profiles.tsv')
-            profile, pct_match = profile_query.query(result_by_locus)
+            profile, nb_matches = profile_query.query(result_by_locus)
+            pct_match = 100 * nb_matches / len(result_by_locus)
             logger.info(f'Matching ST: {profile.name} ({pct_match:.2f}% match)')
         else:
-            profile, pct_match = None, None
+            profile = None
+            pct_match = None
+            nb_matches = None
 
         # Create output files
-        self._export_json(result_by_locus, path_out=out_json, profile=profile, pct_match=pct_match)
+        self._export_json(result_by_locus, path_out=out_json, profile=profile, nb_matches=nb_matches, pct_match=pct_match)
         if self._export_novel and data_results['is_novel'].sum() > 0:
             logger.info("Exporting novel allele sequences")
             self._export_novel_allele_seqs(data_results, result_by_locus, out_dir)
@@ -140,12 +143,13 @@ class MistCaller:
 
     def _export_json(
             self, results_by_locus: dict[str, model.QueryResult], path_out: Path, profile: model.Profile,
-            pct_match: float) -> None:
+            nb_matches: int | None, pct_match: float | None) -> None:
         """
         Exports the results in JSON format.
         :param results_by_locus: Result(s) by locus
         :param path_out: Output path
         :param profile: Detected profile
+        :param nb_matches: Number of matching loci
         :param pct_match: Percent match for the profile
         :return: None
         """
@@ -160,7 +164,11 @@ class MistCaller:
         with open(path_out, 'w') as handle:
             json.dump({
                 'alleles': {locus: dataclasses.asdict(res) for locus, res in results_by_locus.items()},
-                'profile': {**dataclasses.asdict(profile), 'pct_match': pct_match} if profile is not None else None,
+                'profile': {
+                    **dataclasses.asdict(profile),
+                    'pct_match': pct_match,
+                    'nb_matches': nb_matches
+                } if profile is not None else None,
                 'metadata': {
                     'timestamp': datetime.now().isoformat(),
                     'tool_version': __version__,
