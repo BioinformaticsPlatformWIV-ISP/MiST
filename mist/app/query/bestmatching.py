@@ -57,7 +57,7 @@ class ImperfectMatchDetector:
             viable_lengths = list(self._data_seqs_db['length'].unique())
             logger.debug(
                 f"Length of detected sequence ({len(seq):,}) does not match any alleles in the "
-                f"database ({', '.join(str(l) for l in viable_lengths)})")
+                f"database ({', '.join(str(l) for l in sorted(viable_lengths))})")
             raise InvalidLengthException(len(seq), viable_lengths)
         data_subset['nb_matches'] = data_subset['seq'].apply(lambda x: sum(c1 == c2 for c1, c2 in zip(x, seq)))
         max_matches = data_subset['nb_matches'].max()
