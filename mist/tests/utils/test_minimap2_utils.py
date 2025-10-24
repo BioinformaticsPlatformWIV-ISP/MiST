@@ -29,7 +29,7 @@ class TestMinimap2Utils(unittest.TestCase):
         :return: None
         """
         path_db = Path(str(files('mist').joinpath('resources/testdata/NEIS0140-subset.fasta')))
-        path_query = Path(str(files('mist').joinpath('resources/testdata/neiss_query.fasta')))
+        path_query = Path(str(files('mist').joinpath('resources/testdata/query-perfect_hits.fasta')))
         with testingutils.get_temp_dir() as dir_temp:
             # Create index
             path_in = Path(dir_temp, path_db.name)
@@ -47,7 +47,7 @@ class TestMinimap2Utils(unittest.TestCase):
         :return: None
         """
         path_db = Path(str(files('mist').joinpath('resources/testdata/NEIS0140-subset.fasta')))
-        path_query = Path(str(files('mist').joinpath('resources/testdata/neiss_query.fasta')))
+        path_query = Path(str(files('mist').joinpath('resources/testdata/query-perfect_hits.fasta')))
         data_out = minimap2utils.align(path_query, path_db)
         self.assertGreater(len(data_out), 0)
 
@@ -57,7 +57,7 @@ class TestMinimap2Utils(unittest.TestCase):
         :return: None
         """
         path_db = Path(str(files('mist').joinpath('resources/testdata/NEIS0140-subset.fasta')))
-        path_query = Path(str(files('mist').joinpath('resources/testdata/neiss_query.fasta')))
+        path_query = Path(str(files('mist').joinpath('resources/testdata/query-perfect_hits.fasta')))
         data_out = minimap2utils.align(path_query, path_db, include_cigar=True)
         self.assertGreater(len(data_out), 0)
 

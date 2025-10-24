@@ -57,7 +57,7 @@ class TestCall(unittest.TestCase):
                 cli,
                 [
                     'call',
-                    '--fasta', str(files('mist').joinpath('resources/testdata/neiss_query.fasta')),
+                    '--fasta', str(files('mist').joinpath('resources/testdata/query-perfect_hits.fasta')),
                     '--db', str(self.db_path),
                     '--out-json', str(path_json),
                     '--threads', '4'
@@ -85,7 +85,7 @@ class TestCall(unittest.TestCase):
             result = runner.invoke(
                 cli, [
                     'call',
-                    '--fasta', str(files('mist').joinpath('resources/testdata/neiss_query_novel_allele.fasta')),
+                    '--fasta', str(files('mist').joinpath('resources/testdata/query-novel.fasta')),
                     '--db', str(self.db_path),
                     '--out-json', str(path_json),
                     '--out-dir', str(dir_out),
@@ -107,8 +107,8 @@ class TestCall(unittest.TestCase):
         """
         runner = CliRunner()
         fasta_in = [
-            str(files('mist').joinpath('resources/testdata/neiss_query_novel_allele.fasta')),
-            str(files('mist').joinpath('resources/testdata/neiss_query_novel_allele_rc.fasta'))
+            str(files('mist').joinpath('resources/testdata/query-novel.fasta')),
+            str(files('mist').joinpath('resources/testdata/query-novel_rc.fasta'))
         ]
         calls_out = []
         with testingutils.get_temp_dir() as dir_temp:
@@ -157,7 +157,7 @@ class TestCall(unittest.TestCase):
             result = runner.invoke(
                 cli,[
                     'call',
-                    '--fasta', str(files('mist').joinpath('resources/testdata/neiss_query_no_hit.fasta')),
+                    '--fasta', str(files('mist').joinpath('resources/testdata/query-both_absent.fasta')),
                     '--db', str(self.db_path),
                     '--out-json', str(path_json),
                     '--threads', '4',

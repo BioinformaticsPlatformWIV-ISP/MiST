@@ -24,7 +24,6 @@ classifiers = [
 ]
 
 dependencies = [
-  "PyYAML",
   "biopython",
   "bs4",
   "click",
