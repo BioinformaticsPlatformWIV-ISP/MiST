@@ -52,14 +52,20 @@ class ImperfectMatchDetector:
         :return: Seq ids for the best matching sequences
         """
         data_subset = self._data_seqs_db[self._data_seqs_db['length'] == len(seq)].copy()
+        logger.debug(f'Found {len(data_subset):,} allele(s) matching the length of the detected sequence ({len(seq)})')
         if len(data_subset) == 0:
             viable_lengths = list(self._data_seqs_db['length'].unique())
             logger.debug(
                 f"Length of detected sequence ({len(seq):,}) does not match any alleles in the "
-                f"database ({', '.join(str(l) for l in viable_lengths)})")
+                f"database ({', '.join(str(l) for l in sorted(viable_lengths))})")
             raise InvalidLengthException(len(seq), viable_lengths)
+
         data_subset['nb_matches'] = data_subset['seq'].apply(lambda x: sum(c1 == c2 for c1, c2 in zip(x, seq)))
         max_matches = data_subset['nb_matches'].max()
-        if (100 * max_matches / len(seq)) <= min_id:
+
+        # Check if the identity matches
+        identity = 100 * max_matches / len(seq)
+        if identity <= min_id:
+            logger.debug(f'Identity ({identity:.2f}%) to best matching sequence is below threshold ({min_id}%).')
             return []
         return list(data_subset[data_subset['nb_matches'] == max_matches]['id'])

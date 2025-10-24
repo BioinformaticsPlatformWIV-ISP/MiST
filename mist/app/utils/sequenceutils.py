@@ -18,19 +18,17 @@ def rev_complement(seq_in: str) -> str:
     return str(Seq(seq_in).reverse_complement())
 
 
-def hash_sequence(seq_in: str, normalize: bool = False) -> str:
+def hash_sequence(seq_in: str, rev_comp: bool = False) -> str:
     """
     Hashes the input sequence.
     :param seq_in: Input sequence
-    :param normalize: If true, the hash is calculated on the canonical form (min of seq and its reverse complement)
+    :param rev_comp: Reverse complement the sequence before hashing
     :return: Hashed sequence
     """
-    if not normalize:
-        return hashlib.sha1(seq_in.replace('-', '').encode('ascii')).hexdigest()
-    seq_in = seq_in.replace('-', '')
-    seq_rc = rev_complement(seq_in)
-    seq_canonical = min(seq_in, seq_rc)
-    return hashlib.sha1(seq_canonical.encode('ascii')).hexdigest()
+    seq_in = seq_in.lower().replace('-', '')
+    if rev_comp is True:
+        seq_in = rev_complement(seq_in)
+    return hashlib.sha1(seq_in.encode('ascii')).hexdigest()
 
 
 def extract_hashes(path_fasta: Path, ori_by_seq_id: dict[str, str]) -> pd.DataFrame:

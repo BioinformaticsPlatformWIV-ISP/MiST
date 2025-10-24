@@ -25,10 +25,12 @@ class Tag(Enum):
     """
     Tags to denote the different result types.
     """
-    NOVEL = 'NOVEL'
-    ABSENT = 'ABSENT'
-    INDEL = 'INDEL'
-    EDGE = 'EDGE'
+    EXACT = 'EXACT' # Exact match
+    NOVEL = 'NOVEL' # Potential novel allele
+    MULTI = 'MULTI' # Multiple perfect hits
+    ABSENT = 'ABSENT' # No seed alignment
+    INDEL = 'INDEL' # Incorrect length
+    EDGE = 'EDGE' # Contig edge
 
 
 @dataclasses.dataclass(frozen=True, unsafe_hash=True)
@@ -41,7 +43,7 @@ class Profile:
     alleles: dict[str, str] | None = dataclasses.field(hash=False)
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class Alignment:
     """
     Represents an alignment in the input sequence.
@@ -60,18 +62,19 @@ class Alignment:
         return self.end - self.start
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class AlleleResult:
     """
     Match to an allele.
     """
     allele: str
     alignment: Alignment
+    length: int
     sequence: str | None = None
     closest_alleles: list[str] | None = None
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class QueryResult:
     """
     Combined output of a locus query, can contain multiple allele matches

@@ -21,12 +21,15 @@ class TestCall(unittest.TestCase):
         Sets up a temporary directory and builds a database there before each test.
         :return: None
         """
-        path_fasta = Path(str(files('mist').joinpath('resources/testdata/NEIS0140-subset.fasta')))
+        paths_fasta = [
+            Path(str(files('mist').joinpath('resources/testdata/NEIS0140-subset.fasta'))),
+            Path(str(files('mist').joinpath('resources/testdata/NEIS0159-subset.fasta'))),
+        ]
         self.dir_temp = testingutils.get_temp_dir()
         self.db_path = Path(self.dir_temp.name)
 
         # Build the index once for each test
-        mist_idx = MistIndex(paths_fasta=[path_fasta], path_profiles=None)
+        mist_idx = MistIndex(paths_fasta=paths_fasta, path_profiles=None)
         mist_idx.create_index(dir_out=self.db_path, threads=4)
 
     def tearDown(self) -> None:
@@ -36,9 +39,9 @@ class TestCall(unittest.TestCase):
         """
         self.dir_temp.cleanup()
 
-    def test_call_with_hit(self) -> None:
+    def test_call_with_hits(self) -> None:
         """
-        Tests querying the database with a hit.
+        Tests calling the alleles with all perfect hits.
         :return: None
         """
         runner = CliRunner()
@@ -60,8 +63,10 @@ class TestCall(unittest.TestCase):
                     '--threads', '4'
                 ], catch_exceptions=False
             )
+
+            # Check if the command was executed successfully
             self.assertEqual(0, result.exit_code)
-            self.assertTrue(path_json.exists())
+            self.assertTrue(path_json.exists(), "Output JSON file not generated")
 
     def test_call_with_novel_allele(self) -> None:
         """

@@ -19,8 +19,8 @@ class TestSequenceUtils(unittest.TestCase):
         Tests the hash sequence function.
         :return: None
         """
-        hash_a = sequenceutils.hash_sequence('ACTGA', normalize=False)
-        hash_b = sequenceutils.hash_sequence('CGATG', normalize=False)
+        hash_a = sequenceutils.hash_sequence('ACTGA', rev_comp=True)
+        hash_b = sequenceutils.hash_sequence('CGATG', rev_comp=True)
         self.assertNotEqual(hash_a, hash_b)
 
     def test_rev_complement(self) -> None:
