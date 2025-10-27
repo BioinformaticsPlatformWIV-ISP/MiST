@@ -71,8 +71,15 @@ class MistIndex:
         # Calculate hashes
         orientation_by_seq_id = {
             member['seq_id']: member['ori'] if member['ori'] is not None else '+'
-            for cluster in clusters for member in cluster['members']
+            for cluster in clusters
+            for member in cluster['members']
         }
+
+        # Check for invalid sequences (not in clustering)
+        invalid_ids = set(seq_by_id) - set(orientation_by_seq_id)
+        if invalid_ids:
+            logger.warning(f"Invalid sequences found in {path_fasta.name}: {', '.join(invalid_ids)}")
+
         data_hashes = sequenceutils.extract_hashes(path_fasta_full, orientation_by_seq_id)
         logging.info(f'Parsed {len(data_hashes)} hashes from {path_fasta.name}')
 
