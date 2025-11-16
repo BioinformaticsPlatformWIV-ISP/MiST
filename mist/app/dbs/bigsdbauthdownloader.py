@@ -40,7 +40,7 @@ class BIGSDbAuthDownloader(BaseDownloader):
         Returns the path to the downloader script
         :return: Path to the downloader script
         """
-        return str(files('mist').joinpath('resources/pubmlst/download_pubmlst.py'))
+        return str(files('mist').joinpath('resources/pubmlst/download_bigsdb.py'))
 
     def _check_credentials(self, dir_keys: Path) -> None:
         """
