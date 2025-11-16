@@ -13,4 +13,4 @@ or ask for help.
 
 # CITATION
 
-Bogaerts B, MiST (https://github.com/BioinformaticsPlatformWIV-ISP/MiST)
+Bogaerts, B., Roosens, N.H.C. & Vanneste, K. MiST: rapid, accurate and flexible (core-genome) multi-locus sequence typing (MLST) allele calling from draft genomes. BMC Genomics (2025). https://doi.org/10.1186/s12864-025-12324-z
