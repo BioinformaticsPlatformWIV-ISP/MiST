@@ -6,6 +6,8 @@ import pandas as pd
 from Bio import SeqIO
 from Bio.Seq import Seq
 
+from mist.app.loggers.logger import logger
+
 REGEX_ALLELE = r'_(\d+)$'
 
 
@@ -41,6 +43,9 @@ def extract_hashes(path_fasta: Path, ori_by_seq_id: dict[str, str]) -> pd.DataFr
     records_out = []
     with path_fasta.open() as handle:
         for record in SeqIO.parse(handle, 'fasta'):
+            if record.id not in ori_by_seq_id:
+                logger.debug(f'Skipping: {record.id}')
+                continue
             if ori_by_seq_id[record.id] in ('+', None):
                 seq = str(record.seq)
             else:
