@@ -1,3 +1,6 @@
+[![PyPI version](https://badge.fury.io/py/mist_typing.svg)](https://badge.fury.io/py/mist_typing)
+[![install with bioconda](https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=flat-square)](http://bioconda.github.io/recipes/mist_typing/README.html)
+
 # MiST
 
 MiST is a rapid, accurate and flexible (core-genome) multi-locus sequence typing (MLST) allele caller.
