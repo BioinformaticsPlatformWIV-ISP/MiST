@@ -92,6 +92,9 @@ class CgMLSTOrgDownloader(BaseDownloader):
         if include_profiles:
             logger.warning('Currently, cgMLST.org does not offer profile downloads.')
             # href_profiles = str(furl(url).add(path='locus').add({"content-type": "csv"}))
+            # with open(self.dir_out / 'profiles.tsv', 'w') as handle:
+            #     handle.write(retrieve_page_data(href_profiles).text)
+            # logger.info('Profiles downloaded')
 
         # Create a TXT file with all FASTA files
         self.create_fasta_list(paths_fasta)
