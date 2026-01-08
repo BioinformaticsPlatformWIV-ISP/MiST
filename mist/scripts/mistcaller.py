@@ -8,7 +8,7 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
-from mist.app import model, NAME_DB_INFO
+from mist.app import NAME_DB_INFO, model
 from mist.app.loggers.logger import logger
 from mist.app.model import CustomEncoder
 from mist.app.query.allelequeryminimap import AlleleQueryMinimap2, MultiStrategy
@@ -98,13 +98,16 @@ class MistCaller:
                     seq=Seq(res_by_locus[locus].allele_results[0].sequence),
                 ), handle, 'fasta')
 
-    def call_alleles(self, path_fasta: Path, out_json: Path, out_dir: Path, out_tsv: Path, threads: int) -> None:
+    def call_alleles(
+            self, path_fasta: Path, out_json: Path, out_dir: Path, out_tsv: Path, sample_id: str | None,
+            threads: int) -> None:
         """
         Calls the alleles from the input FASTA file.
         :param path_fasta: Input FASTA path
         :param out_json: JSON output path
         :param out_dir: Output directory
         :param out_tsv: Output TSV path
+        :param sample_id: Sample id to include in the output file(s)
         :param threads: Number of threads
         :return: None
         """
@@ -132,25 +135,32 @@ class MistCaller:
             nb_matches = None
 
         # Create output files
-        self._export_json(result_by_locus, path_out=out_json, profile=profile, nb_matches=nb_matches, pct_match=pct_match)
+        self._export_json(
+            result_by_locus, path_in=path_fasta, path_out=out_json, profile=profile, nb_matches=nb_matches,
+            pct_match=pct_match, sample_id=sample_id)
         if self._export_novel and data_results['is_novel'].sum() > 0:
             logger.info("Exporting novel allele sequences")
             self._export_novel_allele_seqs(data_results, result_by_locus, out_dir)
 
         # Export TSV output
         if out_tsv is not None:
-            data_results.to_csv(out_tsv, sep='\t', index=False)
+            with open(out_tsv, 'w') as handle:
+                if sample_id is not None:
+                    handle.write(f"#sample_id:{sample_id}\n")
+                data_results.to_csv(handle, sep='\t', index=False)
 
     def _export_json(
-            self, results_by_locus: dict[str, model.QueryResult], path_out: Path, profile: model.Profile,
-            nb_matches: int | None, pct_match: float | None) -> None:
+            self, results_by_locus: dict[str, model.QueryResult], path_in: Path, path_out: Path, profile: model.Profile,
+            nb_matches: int | None, pct_match: float | None, sample_id: str | None) -> None:
         """
         Exports the results in JSON format.
         :param results_by_locus: Result(s) by locus
+        :param path_in: Input FASTA path
         :param path_out: Output path
         :param profile: Detected profile
         :param nb_matches: Number of matching loci
         :param pct_match: Percent match for the profile
+        :param sample_id: Sample id
         :return: None
         """
         # Parse the database information (if available)
@@ -172,7 +182,11 @@ class MistCaller:
                 'metadata': {
                     'timestamp': datetime.now().isoformat(),
                     'tool_version': __version__,
-                    'db': data_db
+                    'db': data_db if data_db else 'n/a',
+                    'input': {
+                        'path': str(path_in),
+                        'sample_id': sample_id
+                    }
                 }
-            }, handle, indent=2, cls=CustomEncoder)
+            }, handle, indent=2, cls=CustomEncoder, sort_keys=True)
         logger.info(f'Output stored in: {path_out}')

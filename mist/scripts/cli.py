@@ -89,6 +89,7 @@ def index_(
 @click.option("--export-novel", is_flag=True, help="Create FASTA files for (potential) novel alleles")
 @click.option("--keep-minimap2", is_flag=True, help="Store the minimap2 output")
 @click.option("--min-id-novel", type=int, default=99, show_default=True, help="Minimum % identity for novel alleles")
+@click.option("--sample-id", help="Sample identifier to include in the output file(s).")
 @click.option(
     "-m", "--multi", type=click.Choice([s.value for s in MultiStrategy]), default=MultiStrategy.ALL.value,
     show_default=True, help="Strategy to handle multiple perfect hits")
@@ -105,6 +106,7 @@ def call(
         threads: int,
         min_id_novel: int,
         multi: str,
+        sample_id: str | None,
         loci: str | None,
         debug: bool,
         log: Path) -> None:
@@ -145,6 +147,7 @@ def call(
         out_json=out_json_,
         out_tsv=out_tsv,
         out_dir=out_dir,
+        sample_id=sample_id,
         threads=threads
     )
     logger.info("Make sure to cite the corresponding database when using this in your research")

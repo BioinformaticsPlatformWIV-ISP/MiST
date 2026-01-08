@@ -8,6 +8,7 @@ from click.testing import CliRunner
 from mist.app.loggers.logger import initialize_logging
 from mist.app.utils import sequenceutils, testingutils
 from mist.scripts.cli import cli
+from mist.scripts.mistdists import MistDists
 from mist.scripts.mistindex import MistIndex
 
 
@@ -164,6 +165,36 @@ class TestCall(unittest.TestCase):
                 ], catch_exceptions=False
             )
             self.assertEqual(result.exit_code, 0)
+
+    def test_call_sample_id(self) -> None:
+        """
+        Tests querying the database without a sample id.
+        :return: None
+        """
+        runner = CliRunner()
+        with testingutils.get_temp_dir() as dir_temp:
+            # Output file(s)
+            dir_out = Path(dir_temp, 'out')
+            dir_out.mkdir(parents=True, exist_ok=True)
+            path_json = dir_out / 'alleles.json'
+            path_tsv = dir_out / 'alleles.tsv'
+
+            # Run the script
+            # noinspection PyTypeChecker
+            result = runner.invoke(
+                cli,[
+                    'call',
+                    '--fasta', str(files('mist').joinpath('resources/testdata/query-perfect_hits.fasta')),
+                    '--db', str(self.db_path),
+                    '--out-json', str(path_json),
+                    '--out-tsv', str(path_tsv),
+                    '--threads', '4',
+                    '--sample-id', 'my_sample_id',
+                ], catch_exceptions=False
+            )
+            self.assertEqual(result.exit_code, 0)
+            self.assertEqual(MistDists.parse_tsv(path_tsv)[0], 'my_sample_id')
+            self.assertEqual(MistDists.parse_json(path_json)[0], 'my_sample_id')
 
 
 if __name__ == '__main__':

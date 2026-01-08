@@ -58,8 +58,26 @@ class MistDists:
         :return: Parsed data
         """
         logger.debug(f'Parsing file: {path_in}')
-        data_tsv = pd.read_table(path_in, dtype=str, index_col='locus')
-        return path_in.name.replace('.tsv', ''), data_tsv['allele']
+
+        with path_in.open('r') as handle:
+            # Attempt to read sample id
+            line = handle.readline()
+            if line.startswith('#sample_id:'):
+                sample_id = line.replace('#sample_id:', '').strip()
+            else:
+                sample_id = None
+                # Reset file handle to the top
+                handle.seek(0)
+            try:
+                # Parse the TSV file
+                data_tsv = pd.read_table(handle, dtype=str, index_col='locus', comment='#')
+            except BaseException as err:
+                logger.error(f'Failed to parse {path_in}: {err}')
+                raise err
+
+        # Extract the sample name
+        name = sample_id if sample_id is not None else path_in.name.replace('.tsv', '')
+        return name, data_tsv['allele']
 
     @staticmethod
     def parse_json(path_in: Path) -> tuple[str, pd.Series]:
@@ -72,7 +90,11 @@ class MistDists:
         with path_in.open() as handle:
             data = json.load(handle)
         alleles = pd.Series({locus: row['allele_str'] for locus, row in data['alleles'].items()})
-        return path_in.name.replace('.json', ''), alleles
+        if data['metadata'].get('input', {}).get('sample_id') is not None:
+            name = data['metadata']['input']['sample_id']
+        else:
+            name = path_in.name.replace('.json', '')
+        return name, alleles
 
     def _log_nb_perfect_hits(self, name, alleles: pd.Series) -> None:
         """
