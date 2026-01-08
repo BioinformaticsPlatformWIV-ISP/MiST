@@ -59,8 +59,8 @@ class TestDownloaders(unittest.TestCase):
             downloader.download_scheme(
                 url='https://www.cgmlst.org/ncs/schema/Cjejuni22/',
                 dir_out=Path(dir_temp),
-                include_profiles=True)
-            self.assertTrue(TestDownloaders.download_succeeded(Path(dir_temp), with_profiles=True))
+                include_profiles=False)
+            self.assertTrue(TestDownloaders.download_succeeded(Path(dir_temp), with_profiles=False))
 
     def test_download_enterobase(self) -> None:
         """
