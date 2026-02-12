@@ -32,7 +32,8 @@ dependencies = [
   "pytest",
   "pytest-xdist",
   "rauth",
-  "requests"
+  "requests",
+  "scipy"
 ]
 
 [project.urls]
