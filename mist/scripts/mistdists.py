@@ -1,8 +1,9 @@
-import itertools
 import json
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
+from scipy.spatial.distance import pdist, squareform
 
 from mist.app.loggers.logger import logger
 
@@ -33,22 +34,6 @@ class MistDists:
         self._out_dists = out_dists
         self._min_perc_loci = min_perc_loci
         self._min_perc_samples = min_perc_samples
-
-    @staticmethod
-    def _calc_distance(alleles_a: pd.Series, alleles_b: pd.Series) -> int:
-        """
-        Calculate the pairwise allele distance.
-        :param alleles_a: Alleles a
-        :param alleles_b: Alleles b
-        :return: Number of allelic differences
-        """
-        total_dist = 0
-        for allele_a, allele_b in zip(alleles_a, alleles_b):
-            if allele_a == '-' and allele_b == '-':
-                continue
-            else:
-                total_dist += 0 if allele_a == allele_b else 1
-        return total_dist
 
     @staticmethod
     def parse_tsv(path_in: Path) -> tuple[str, pd.Series]:
@@ -128,29 +113,51 @@ class MistDists:
             raise ValueError(f'At least {MistDists.MIN_NB_DATASETS} input files are required (found: {len(datasets)})')
 
         # Create merged DataFrame
-        return pd.DataFrame(data=list(datasets.values()), index=list(datasets.keys()), dtype=str)
+        return pd.DataFrame(
+            data=list(datasets.values()), index=list(datasets.keys()), dtype=str
+        )
 
-    def _calc_distance_matrix(self, allele_data_filt: pd.DataFrame) -> pd.DataFrame:
+    @staticmethod
+    def encode_alleles_global(df: pd.DataFrame) -> pd.DataFrame:
         """
-        Calculates the pairwise distance matrix
-        :param allele_data_filt: Filtered allele matrix
-        :return: Distance matrix
+        Converts allele ids from string to integers for faster comparison.
+        :param df: Input dataframe
+        :return: Encoded dataframe
         """
-        # Calculate pair-wise distances
-        distance_by_dataset_pair = {}
-        for dataset_a, dataset_b in itertools.combinations(allele_data_filt.index, r=2):
-            key = tuple(sorted([dataset_a, dataset_b]))
-            dist = MistDists._calc_distance(allele_data_filt.loc[dataset_a], allele_data_filt.loc[dataset_b])
-            distance_by_dataset_pair[key] = dist
+        df = df.replace('-', -1)
+        flat = pd.factorize(df.values.ravel())[0]
+        return pd.DataFrame(
+            flat.reshape(df.shape), index=df.index, columns=df.columns, dtype=np.int32
+        )
 
-        # Create data frame with pairwise distances
-        records_out = []
-        for dataset_a in allele_data_filt.index:
-            records_out.append({
-                dataset_b: distance_by_dataset_pair.get(tuple(sorted([dataset_a, dataset_b])), 0) for
-                dataset_b in allele_data_filt.index
-            })
-        return pd.DataFrame(records_out, index=allele_data_filt.index)
+    @staticmethod
+    def pdist_allele_distance(u: np.ndarray, v: np.ndarray) -> np.int32:
+        """
+        Calculates the allele distance between two arrays.
+        :param u: Array A (allele calls for a dataset)
+        :param v: Array B (allele calls for a dataset)
+        :return: The total distance
+        """
+        both_missing = (u == -1) & (v == -1)
+        diff = u != v
+        # noinspection PyUnresolvedReferences
+        diff[both_missing] = False
+        return np.sum(diff)
+
+    @staticmethod
+    def pdist_calc_distance_matrix(df_alleles: pd.DataFrame) -> pd.DataFrame:
+        """
+        Uses pdist to calculate the pairwise distances.
+        :param df_alleles: Input dataframe with alleles (encoded as integers)
+        :return: Pairwise distance matrix
+        """
+        dists = pdist(df_alleles.to_numpy(), metric=MistDists.pdist_allele_distance)
+        return pd.DataFrame(
+            squareform(dists),
+            index=df_alleles.index,
+            columns=df_alleles.index,
+            dtype=int
+        )
 
     def _filt_allele_matrix(self, allele_data: pd.DataFrame) -> pd.DataFrame:
         """
@@ -190,7 +197,8 @@ class MistDists:
         logger.info(f'Allele matrix exported to: {self._out_matrix}')
 
         # Calculate the distance matrix
-        df_dists = self._calc_distance_matrix(df_alleles_filt)
+        df_alleles_filt_as_int = MistDists.encode_alleles_global(df_alleles_filt)
+        df_dists = MistDists.pdist_calc_distance_matrix(df_alleles_filt_as_int)
 
         # Check the distance matrix
         if df_dists.to_numpy().max() == 0:
