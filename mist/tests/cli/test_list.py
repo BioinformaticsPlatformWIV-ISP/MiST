@@ -1,4 +1,3 @@
-import re
 import unittest
 
 from click.testing import CliRunner
