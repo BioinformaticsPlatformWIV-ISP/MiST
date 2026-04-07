@@ -18,8 +18,8 @@ class MistDists:
     MIN_NB_DATASETS = 3
 
     def __init__(
-            self, inputs: list[Path], out_matrix: Path, out_dists: Path, min_perc_loci: int,
-            min_perc_samples: int) -> None:
+        self, inputs: list[Path], out_matrix: Path, out_dists: Path, min_perc_loci: int, min_perc_samples: int
+    ) -> None:
         """
         Initializes the main script.
         :param inputs: List of input files
@@ -113,9 +113,7 @@ class MistDists:
             raise ValueError(f'At least {MistDists.MIN_NB_DATASETS} input files are required (found: {len(datasets)})')
 
         # Create merged DataFrame
-        return pd.DataFrame(
-            data=list(datasets.values()), index=list(datasets.keys()), dtype=str
-        )
+        return pd.DataFrame(data=list(datasets.values()), index=list(datasets.keys()), dtype=str)
 
     @staticmethod
     def encode_alleles_global(df: pd.DataFrame) -> pd.DataFrame:
@@ -126,9 +124,7 @@ class MistDists:
         """
         df = df.replace('-', -1)
         flat = pd.factorize(df.values.ravel())[0]
-        return pd.DataFrame(
-            flat.reshape(df.shape), index=df.index, columns=df.columns, dtype=np.int32
-        )
+        return pd.DataFrame(flat.reshape(df.shape), index=df.index, columns=df.columns, dtype=np.int32)
 
     @staticmethod
     def pdist_allele_distance(u: np.ndarray, v: np.ndarray) -> np.int32:
@@ -152,12 +148,7 @@ class MistDists:
         :return: Pairwise distance matrix
         """
         dists = pdist(df_alleles.to_numpy(), metric=MistDists.pdist_allele_distance)
-        return pd.DataFrame(
-            squareform(dists),
-            index=df_alleles.index,
-            columns=df_alleles.index,
-            dtype=int
-        )
+        return pd.DataFrame(squareform(dists), index=df_alleles.index, columns=df_alleles.index, dtype=int)
 
     def _filt_allele_matrix(self, allele_data: pd.DataFrame) -> pd.DataFrame:
         """

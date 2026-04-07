@@ -18,14 +18,19 @@ def nucmer(path_fasta_ref: Path, path_fasta_in: Path, dir_out: Path, threads: in
     """
     basename = path_fasta_in.name.replace('.fasta', '')
     path_out = dir_out / basename
-    command = Command(' '.join([
-        'nucmer',
-        '--maxmatch',
-        f'-p {path_out}',
-        str(path_fasta_ref),
-        str(path_fasta_in),
-        '--threads', str(threads) # nb. of threads
-    ]))
+    command = Command(
+        ' '.join(
+            [
+                'nucmer',
+                '--maxmatch',
+                f'-p {path_out}',
+                str(path_fasta_ref),
+                str(path_fasta_in),
+                '--threads',
+                str(threads),  # nb. of threads
+            ]
+        )
+    )
     command.run(Path().cwd(), disable_logging=not debug)
     if not command.exit_code == 0:
         raise RuntimeError(f'Error running nucmer: {command.stderr}')
@@ -39,12 +44,7 @@ def show_coords(path_tsv: Path, debug: bool = False) -> pd.DataFrame:
     :param debug: If True, enable debug mode
     :return: Parsed coordinates
     """
-    command = Command(' '.join([
-        'show-coords',
-        '-rcl',
-        '-T',
-        str(path_tsv)
-    ]))
+    command = Command(' '.join(['show-coords', '-rcl', '-T', str(path_tsv)]))
     command.run(Path().cwd(), disable_logging=not debug)
     if not command.exit_code == 0:
         raise RuntimeError(f'Error running show-coords: {command.stderr}')

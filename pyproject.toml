@@ -58,6 +58,12 @@ version = {attr = "mist.version.__version__"}
 [project.scripts]
 mist = "mist.scripts.cli:cli"
 
+[tool.ruff]
+line-length = 120
+extend-exclude = [
+    "mist/resources/*.py",
+]
+
 [tool.ruff.lint]
 select = ["D", "I", "F", "PL", "UP", "W"]
 ignore = [

@@ -31,11 +31,13 @@ class ProfileQuery:
         # Construct the profiles
         profiles = []
         for row in data_in.fillna('n/a').to_dict('records'):
-            profiles.append(model.Profile(
-                name=row[data_in.columns[0]],
-                alleles={c: row[c] for c in cols_alleles},
-                metadata=[(c, row[c] if not pd.isna(row[c]) else '-') for c in cols_metadata],
-            ))
+            profiles.append(
+                model.Profile(
+                    name=row[data_in.columns[0]],
+                    alleles={c: row[c] for c in cols_alleles},
+                    metadata=[(c, row[c] if not pd.isna(row[c]) else '-') for c in cols_metadata],
+                )
+            )
         logger.debug(f'Parsed {len(profiles):,} profiles')
         return profiles
 
@@ -82,6 +84,8 @@ class ProfileQuery:
         data_profiles['nb_matches'] = data_profiles['profile'].apply(
             lambda p: sum(
                 ProfileQuery._alleles_match(res, self._profiles_by_name[p].alleles[locus])
-                for locus, res in result_by_locus.items()))
+                for locus, res in result_by_locus.items()
+            )
+        )
         best_match = data_profiles.sort_values(by='nb_matches', ascending=False).iloc[0]
         return self._profiles_by_name[best_match['profile']], int(best_match['nb_matches'])

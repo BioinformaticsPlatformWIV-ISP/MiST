@@ -58,11 +58,16 @@ class TestCall(unittest.TestCase):
                 cli,
                 [
                     'call',
-                    '--fasta', str(files('mist').joinpath('resources/testdata/query-perfect_hits.fasta')),
-                    '--db', str(self.db_path),
-                    '--out-json', str(path_json),
-                    '--threads', '4'
-                ], catch_exceptions=False
+                    '--fasta',
+                    str(files('mist').joinpath('resources/testdata/query-perfect_hits.fasta')),
+                    '--db',
+                    str(self.db_path),
+                    '--out-json',
+                    str(path_json),
+                    '--threads',
+                    '4',
+                ],
+                catch_exceptions=False,
             )
 
             # Check if the command was executed successfully
@@ -84,15 +89,23 @@ class TestCall(unittest.TestCase):
             # Run the script
             # noinspection PyTypeChecker
             result = runner.invoke(
-                cli, [
+                cli,
+                [
                     'call',
-                    '--fasta', str(files('mist').joinpath('resources/testdata/query-novel.fasta')),
-                    '--db', str(self.db_path),
-                    '--out-json', str(path_json),
-                    '--out-dir', str(dir_out),
-                    '--threads', '4',
-                    '--export-novel'
-            ], catch_exceptions=False)
+                    '--fasta',
+                    str(files('mist').joinpath('resources/testdata/query-novel.fasta')),
+                    '--db',
+                    str(self.db_path),
+                    '--out-json',
+                    str(path_json),
+                    '--out-dir',
+                    str(dir_out),
+                    '--threads',
+                    '4',
+                    '--export-novel',
+                ],
+                catch_exceptions=False,
+            )
 
             # Check for the FASTA output
             self.assertTrue((dir_out / 'novel_alleles').exists(), "novel_alleles directory not found")
@@ -109,7 +122,7 @@ class TestCall(unittest.TestCase):
         runner = CliRunner()
         fasta_in = [
             str(files('mist').joinpath('resources/testdata/query-novel.fasta')),
-            str(files('mist').joinpath('resources/testdata/query-novel_rc.fasta'))
+            str(files('mist').joinpath('resources/testdata/query-novel_rc.fasta')),
         ]
         calls_out = []
         with testingutils.get_temp_dir() as dir_temp:
@@ -123,12 +136,17 @@ class TestCall(unittest.TestCase):
                 # Run the script
                 # noinspection PyTypeChecker
                 result = runner.invoke(
-                    cli, [
+                    cli,
+                    [
                         'call',
-                        '--fasta', str(path_fasta),
-                        '--db', str(self.db_path),
-                        '--out-json', str(path_json),
-                        '--threads', '4',
+                        '--fasta',
+                        str(path_fasta),
+                        '--db',
+                        str(self.db_path),
+                        '--out-json',
+                        str(path_json),
+                        '--threads',
+                        '4',
                     ],
                 )
                 self.assertEqual(result.exit_code, 0)
@@ -138,7 +156,7 @@ class TestCall(unittest.TestCase):
         self.assertEqual(
             calls_out[0]['alleles']['NEIS0140-subset']['allele_str'],
             calls_out[1]['alleles']['NEIS0140-subset']['allele_str'],
-            "Allele hashes do not match"
+            "Allele hashes do not match",
         )
 
     def test_call_no_hit(self) -> None:
@@ -156,13 +174,19 @@ class TestCall(unittest.TestCase):
             # Run the script
             # noinspection PyTypeChecker
             result = runner.invoke(
-                cli,[
+                cli,
+                [
                     'call',
-                    '--fasta', str(files('mist').joinpath('resources/testdata/query-both_absent.fasta')),
-                    '--db', str(self.db_path),
-                    '--out-json', str(path_json),
-                    '--threads', '4',
-                ], catch_exceptions=False
+                    '--fasta',
+                    str(files('mist').joinpath('resources/testdata/query-both_absent.fasta')),
+                    '--db',
+                    str(self.db_path),
+                    '--out-json',
+                    str(path_json),
+                    '--threads',
+                    '4',
+                ],
+                catch_exceptions=False,
             )
             self.assertEqual(result.exit_code, 0)
 
@@ -182,15 +206,23 @@ class TestCall(unittest.TestCase):
             # Run the script
             # noinspection PyTypeChecker
             result = runner.invoke(
-                cli,[
+                cli,
+                [
                     'call',
-                    '--fasta', str(files('mist').joinpath('resources/testdata/query-perfect_hits.fasta')),
-                    '--db', str(self.db_path),
-                    '--out-json', str(path_json),
-                    '--out-tsv', str(path_tsv),
-                    '--threads', '4',
-                    '--sample-id', 'my_sample_id',
-                ], catch_exceptions=False
+                    '--fasta',
+                    str(files('mist').joinpath('resources/testdata/query-perfect_hits.fasta')),
+                    '--db',
+                    str(self.db_path),
+                    '--out-json',
+                    str(path_json),
+                    '--out-tsv',
+                    str(path_tsv),
+                    '--threads',
+                    '4',
+                    '--sample-id',
+                    'my_sample_id',
+                ],
+                catch_exceptions=False,
             )
             self.assertEqual(result.exit_code, 0)
             self.assertEqual(MistDists.parse_tsv(path_tsv)[0], 'my_sample_id')

@@ -61,6 +61,7 @@ class TestMinimap2Utils(unittest.TestCase):
         data_out = minimap2utils.align(path_query, path_db, include_cigar=True)
         self.assertGreater(len(data_out), 0)
 
+
 if __name__ == '__main__':
     initialize_logging()
     unittest.main()

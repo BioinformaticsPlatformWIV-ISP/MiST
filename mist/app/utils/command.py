@@ -62,8 +62,9 @@ class Command:
         """
         self._command = cmd
 
-    def run(self, folder: Path, stderr_handle=subprocess.PIPE, disable_logging: bool = False,
-            timeout: Optional[int] = None) -> None:
+    def run(
+        self, folder: Path, stderr_handle=subprocess.PIPE, disable_logging: bool = False, timeout: Optional[int] = None
+    ) -> None:
         """
         Runs the command given at command initialization
         :param folder: Folder where the command is executed
@@ -84,7 +85,8 @@ class Command:
             executable='/bin/bash',
             cwd=folder,
             timeout=timeout,
-            text=True)
+            text=True,
+        )
         self._stdout = self._procedure.stdout or ''
         self._stderr = self._procedure.stderr or ''
         self._exit_code = self._procedure.returncode

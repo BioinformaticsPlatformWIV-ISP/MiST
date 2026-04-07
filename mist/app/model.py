@@ -5,10 +5,12 @@ from typing import Any
 
 ALLELE_MISSING = '-'
 
+
 class CustomEncoder(json.JSONEncoder):
     """
     Custom encoder that can handle dumping dataclass objects.
     """
+
     def default(self, obj: Any) -> Any:
         """
         Default encoding method.
@@ -21,16 +23,18 @@ class CustomEncoder(json.JSONEncoder):
             return dataclasses.asdict(obj)
         return super().default(obj)
 
+
 class Tag(Enum):
     """
     Tags to denote the different result types.
     """
-    EXACT = 'EXACT' # Exact match
-    NOVEL = 'NOVEL' # Potential novel allele
-    MULTI = 'MULTI' # Multiple perfect hits
-    ABSENT = 'ABSENT' # No seed alignment
-    INDEL = 'INDEL' # Incorrect length
-    EDGE = 'EDGE' # Contig edge
+
+    EXACT = 'EXACT'  # Exact match
+    NOVEL = 'NOVEL'  # Potential novel allele
+    MULTI = 'MULTI'  # Multiple perfect hits
+    ABSENT = 'ABSENT'  # No seed alignment
+    INDEL = 'INDEL'  # Incorrect length
+    EDGE = 'EDGE'  # Contig edge
 
 
 @dataclasses.dataclass(frozen=True, unsafe_hash=True)
@@ -38,6 +42,7 @@ class Profile:
     """
     Dataclass to hold ST profile data.
     """
+
     name: str
     metadata: list[tuple[str, str]] = dataclasses.field(hash=False)
     alleles: dict[str, str] | None = dataclasses.field(hash=False)
@@ -48,6 +53,7 @@ class Alignment:
     """
     Represents an alignment in the input sequence.
     """
+
     seq_id: str
     start: int
     end: int
@@ -67,6 +73,7 @@ class AlleleResult:
     """
     Match to an allele.
     """
+
     allele: str
     alignment: Alignment
     length: int
@@ -79,6 +86,7 @@ class QueryResult:
     """
     Combined output of a locus query, can contain multiple allele matches
     """
+
     allele_str: str
     allele_results: list[AlleleResult]
     tags: list[Tag]

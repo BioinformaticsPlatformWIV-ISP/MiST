@@ -10,6 +10,7 @@ VERSION_COMMANDS = {
     'nucmer': {'command': 'nucmer --version', 'exit_code': 0},
 }
 
+
 def _check_dependency(key: str) -> None:
     """
     Checks if the given dependency is available.
@@ -22,6 +23,7 @@ def _check_dependency(key: str) -> None:
     command.run(Path.cwd(), disable_logging=True)
     if command.exit_code != VERSION_COMMANDS[key]['exit_code']:
         raise DependencyError(f"Dependency '{key}' is not available")
+
 
 def check_dependencies(keys: list[str]) -> None:
     """

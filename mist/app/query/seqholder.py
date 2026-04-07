@@ -35,5 +35,5 @@ class SeqHolder:
         :return: Sequence
         """
         if strand in ('+', None):
-            return self._seq_by_id[seq_id][start-1:end]
-        return sequenceutils.rev_complement(self._seq_by_id[seq_id][start-1:end])
+            return self._seq_by_id[seq_id][start - 1 : end]
+        return sequenceutils.rev_complement(self._seq_by_id[seq_id][start - 1 : end])

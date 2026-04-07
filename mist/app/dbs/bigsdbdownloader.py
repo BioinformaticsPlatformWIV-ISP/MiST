@@ -28,9 +28,7 @@ class BIGSDbDownloader(BaseDownloader):
             url_fasta = str(furl(href_locus).add(path='alleles_fasta'))
             path_fasta = restutils.download_fasta(locus_name=locus, url=url_fasta, dir_out=self.dir_out)
             paths_fasta.append(path_fasta)
-            logger.info(
-                f'Downloaded {path_fasta.name} ({sequenceutils.count_sequences(path_fasta):,} sequences)'
-            )
+            logger.info(f'Downloaded {path_fasta.name} ({sequenceutils.count_sequences(path_fasta):,} sequences)')
         return paths_fasta
 
     def _download(self, url: str, dir_out: Path, include_profiles: bool = False) -> None:

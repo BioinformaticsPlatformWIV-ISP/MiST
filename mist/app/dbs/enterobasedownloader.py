@@ -32,11 +32,7 @@ class EnteroBaseDownloader(BaseDownloader):
             raise RuntimeError(f'Error accessing: {url} (status code: {response.status_code})')
         content = bs4.BeautifulSoup(response.text, 'html.parser')
         links = content.find_all('a')
-        return [
-            url.copy().add(path=a['href'])
-            for a in links
-            if a['href'].endswith('.fasta.gz')
-        ]
+        return [url.copy().add(path=a['href']) for a in links if a['href'].endswith('.fasta.gz')]
 
     @staticmethod
     def download_fasta_file(dir_out: Path, url: furl) -> Path:

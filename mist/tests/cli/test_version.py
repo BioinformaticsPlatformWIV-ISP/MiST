@@ -19,7 +19,7 @@ class TestVersion(unittest.TestCase):
         """
         runner = CliRunner()
         # noinspection PyTypeChecker
-        result = runner.invoke(cli,['--version'])
+        result = runner.invoke(cli, ['--version'])
         logger.info(result.output)
         self.assertIn(__version__, result.output)
         self.assertTrue(result.exit_code == 0)

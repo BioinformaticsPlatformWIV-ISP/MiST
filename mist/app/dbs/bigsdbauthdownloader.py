@@ -44,7 +44,7 @@ class BIGSDbAuthDownloader(BaseDownloader):
 
     def _check_credentials(self, dir_keys: Path) -> None:
         """
-        Checks if the required credential are present.
+        Checks if the required credentials are present.
         :param dir_keys: Path to the directory containing the credentials.
         :return: None
         """
@@ -58,15 +58,24 @@ class BIGSDbAuthDownloader(BaseDownloader):
         :param path_out: Output path
         :return: None
         """
-        command = Command(' '.join([
-            'python', self.path_script,
-            '--key_name', self._key_name,
-            '--site', self._site,
-            '--url', url,
-            '--token_dir', str(self._dir_tokens.absolute()),
-            '--cron',
-            f'> {path_out.absolute()}'
-        ]))
+        command = Command(
+            ' '.join(
+                [
+                    'python',
+                    self.path_script,
+                    '--key_name',
+                    self._key_name,
+                    '--site',
+                    self._site,
+                    '--url',
+                    url,
+                    '--token_dir',
+                    str(self._dir_tokens.absolute()),
+                    '--cron',
+                    f'> {path_out.absolute()}',
+                ]
+            )
+        )
         command.run(self.dir_out, timeout=60)
         if not command.exit_code == 0:
             raise RuntimeError(f'Error retrieving: {url}\n{command.stderr}')
@@ -84,9 +93,7 @@ class BIGSDbAuthDownloader(BaseDownloader):
             url_fasta = str(furl(href_locus).add(path='alleles_fasta'))
             path_fasta = self._retrieve_page(url_fasta, self.dir_out / f'{locus}.fasta')
             paths_fasta.append(path_fasta)
-            logger.info(
-                f'Downloaded {path_fasta.name} ({sequenceutils.count_sequences(path_fasta):,} sequences)'
-            )
+            logger.info(f'Downloaded {path_fasta.name} ({sequenceutils.count_sequences(path_fasta):,} sequences)')
         return paths_fasta
 
     def _download(self, url: str, dir_out: Path, include_profiles: bool = False) -> None:

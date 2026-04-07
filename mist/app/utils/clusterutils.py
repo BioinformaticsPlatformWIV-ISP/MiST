@@ -10,6 +10,7 @@ class ClusterDict(TypedDict):
     """
     Holds cluster information.
     """
+
     name: str
     id: int
     members: list[dict[str, str]]
@@ -27,14 +28,21 @@ def cluster_fasta(path_fasta: Path, dir_out: Path, cutoff: int, threads: int = 4
     """
     path_out = dir_out / path_fasta.name.replace(".fasta", "-clustered.fasta")
     command = Command(
-        ' '.join([
-            'cd-hit-est',
-            '-i', str(path_fasta),
-            '-o', str(path_out),
-            '-S 0',
-            '-d 0',
-            '-c', str(cutoff / 100),
-            '-T', str(threads)])
+        ' '.join(
+            [
+                'cd-hit-est',
+                '-i',
+                str(path_fasta),
+                '-o',
+                str(path_out),
+                '-S 0',
+                '-d 0',
+                '-c',
+                str(cutoff / 100),
+                '-T',
+                str(threads),
+            ]
+        )
     )
     command.run(dir_out, disable_logging=not debug)
     if not command.exit_code == 0:
@@ -74,7 +82,8 @@ def parse_cluster_from_file(path_fasta: Path) -> list[ClusterDict]:
                 match = re_cluster.match(line)
                 if not match:
                     raise ValueError(f'Invalid cluster line: {line}')
-                current_cluster['members'].append({
-                    'seq_id': match.group(1), 'ori': match.group(2)[-1] if match.group(2) else None})
+                current_cluster['members'].append(
+                    {'seq_id': match.group(1), 'ori': match.group(2)[-1] if match.group(2) else None}
+                )
     logger.debug(f'{len(clusters):,} clusters parsed from {path_fasta.name}')
     return clusters

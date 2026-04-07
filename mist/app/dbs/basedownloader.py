@@ -14,6 +14,7 @@ class BaseDownloader(metaclass=abc.ABCMeta):
     """
     Baseclass for scheme downloaders.
     """
+
     DOWNLOADER_KEY: ClassVar[str]
 
     def __init__(self, **kwargs: Any) -> None:
@@ -48,7 +49,8 @@ class BaseDownloader(metaclass=abc.ABCMeta):
         self.export_metadata_file(url)
         logger.info(
             f'You can create the index using:\n'
-            f"mist index --fasta-list {dir_out / 'fasta_list.txt'} --output DB_NAME --threads 4")
+            f"mist index --fasta-list {dir_out / 'fasta_list.txt'} --output DB_NAME --threads 4"
+        )
 
     def create_fasta_list(self, paths_fasta: list[Path]) -> None:
         """
@@ -71,11 +73,15 @@ class BaseDownloader(metaclass=abc.ABCMeta):
         """
         path_out = self.dir_out / NAME_DB_INFO
         with path_out.open('w') as handle:
-            json.dump({
-                'url': url,
-                'downloader': self.DOWNLOADER_KEY,
-                'download_date': datetime.datetime.now().isoformat(),
-            }, handle, indent=2)
+            json.dump(
+                {
+                    'url': url,
+                    'downloader': self.DOWNLOADER_KEY,
+                    'download_date': datetime.datetime.now().isoformat(),
+                },
+                handle,
+                indent=2,
+            )
         logger.debug(f'DB info exported to: {path_out}')
 
     def get_available_schemes(self, base_url: furl, **kwargs: Any) -> list[tuple[str, str]]:

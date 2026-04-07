@@ -25,7 +25,9 @@ class MistIndex:
     Main class to index schemes using MiST.
     """
 
-    def __init__(self, paths_fasta: list[Path], path_profiles: Path | None, cutoff: int = 80, debug: bool = False) -> None:
+    def __init__(
+        self, paths_fasta: list[Path], path_profiles: Path | None, cutoff: int = 80, debug: bool = False
+    ) -> None:
         """
         Initializes the index script.
         :param paths_fasta: List of input FASTA files
@@ -99,12 +101,9 @@ class MistIndex:
             'fasta_full': path_fasta_full.name,
             'name': path_fasta.name.replace('.fasta', ''),
             'hashes': {
-                h: allele_id
-                for allele_id, h in data_hashes[['allele_id', 'hash']].itertuples(
-                    index=False, name=None
-                )
+                h: allele_id for allele_id, h in data_hashes[['allele_id', 'hash']].itertuples(index=False, name=None)
             },
-            'nb_seqs': len(data_hashes)
+            'nb_seqs': len(data_hashes),
         }
 
         with open(dir_out / 'mist_db.json', 'w') as handle:
@@ -129,13 +128,15 @@ class MistIndex:
             with concurrent.futures.ThreadPoolExecutor(max_workers=threads) as executor:
                 future_to_locus = {
                     executor.submit(
-                        MistIndex.process_locus, **{
+                        MistIndex.process_locus,
+                        **{
                             'path_fasta': path_fasta,
                             'dir_out': dir_out / locus,
                             'cutoff': self._cutoff,
-                            'debug': self._debug
+                            'debug': self._debug,
                         },
-                    ): locus for locus, path_fasta in zip(self._loci, self._paths_fasta)
+                    ): locus
+                    for locus, path_fasta in zip(self._loci, self._paths_fasta)
                 }
 
                 for future in concurrent.futures.as_completed(future_to_locus):

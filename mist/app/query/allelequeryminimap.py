@@ -20,6 +20,7 @@ class MultiStrategy(Enum):
     """
     Strategy to handle multiple perfect hits.
     """
+
     ALL = 'all'
     FIRST = 'first'
     LONGEST = 'longest'
@@ -54,12 +55,12 @@ class AlleleQueryMinimap2:
     """
 
     def __init__(
-            self,
-            dir_db: Path,
-            dir_out: Optional[Path] = None,
-            multi_strategy: MultiStrategy = MultiStrategy.LONGEST,
-            min_id_novel: int = 99,
-            save_minimap2: bool = False
+        self,
+        dir_db: Path,
+        dir_out: Optional[Path] = None,
+        multi_strategy: MultiStrategy = MultiStrategy.LONGEST,
+        min_id_novel: int = 99,
+        save_minimap2: bool = False,
     ) -> None:
         """
         Initializes this class.
@@ -109,11 +110,9 @@ class AlleleQueryMinimap2:
         return model.AlleleResult(
             allele=allele,
             alignment=model.Alignment(
-                seq_id=row['query_name'],
-                start=row['query_start'],
-                end=row['query_end'],
-                strand=row['sstrand']),
-            length=len(seq)
+                seq_id=row['query_name'], start=row['query_start'], end=row['query_end'], strand=row['sstrand']
+            ),
+            length=len(seq),
         )
 
     def _extract_partial_match(self, df_alignment: pd.DataFrame, locus_name: str) -> model.QueryResult | None:
@@ -206,11 +205,7 @@ class AlleleQueryMinimap2:
         logger.debug(f'Screening for imperfect hits for: {locus_name}')
         return self._extract_partial_match(df_alignment, locus_name)
 
-    def query(
-            self,
-            path_fasta: Path,
-            loci: list[str] | None = None,
-            threads: int = 1) -> dict[str, model.QueryResult]:
+    def query(self, path_fasta: Path, loci: list[str] | None = None, threads: int = 1) -> dict[str, model.QueryResult]:
         """
         Queries the database with the given FASTA file.
         :param path_fasta: Input FASTA file
@@ -225,7 +220,8 @@ class AlleleQueryMinimap2:
         # Seed alignment
         logger.info('Performing seed alignment with Minimap2')
         data_mm2 = minimap2utils.align(
-            path_fasta, self._dir_db / 'loci_repr.fasta', include_cigar=False, threads=threads)
+            path_fasta, self._dir_db / 'loci_repr.fasta', include_cigar=False, threads=threads
+        )
         logger.info(f'{len(data_mm2):,} seed alignments')
         if self._save_minimap2:
             path_out = self._dir_out / 'minimap2_parsed.tsv'
@@ -240,11 +236,12 @@ class AlleleQueryMinimap2:
         # Extract loci
         data_mm2['locus'] = data_mm2['sseqid'].str.rsplit('_', n=1).str[0]
         nb_loci = len(data_mm2['locus'].unique())
-        logger.info(f"{nb_loci:,}/{len(all_loci):,} loci aligned ({100*nb_loci/len(all_loci):.2f}%)")
+        logger.info(f"{nb_loci:,}/{len(all_loci):,} loci aligned ({100 * nb_loci / len(all_loci):.2f}%)")
 
         # Calculate query string and remove duplicates
-        data_mm2[['query_name', 'query_start', 'query_end']] = (
-            data_mm2.apply(lambda x: AlleleQueryMinimap2.__get_coord(x), axis=1, result_type='expand'))
+        data_mm2[['query_name', 'query_start', 'query_end']] = data_mm2.apply(
+            lambda x: AlleleQueryMinimap2.__get_coord(x), axis=1, result_type='expand'
+        )
         data_mm2.drop_duplicates(['locus', 'query_name', 'query_start', 'query_end'], keep='first', inplace=True)
         logger.info(f'{len(data_mm2):,} seed alignments (without duplicates)')
 
@@ -257,4 +254,7 @@ class AlleleQueryMinimap2:
             if (loci is not None) and (locus not in loci):
                 continue
             results_by_locus[str(locus)] = self._process_locus(str(locus), data)
-        return {locus: results_by_locus.get(locus, model.QueryResult(model.ALLELE_MISSING, [], [model.Tag.ABSENT])) for locus in all_loci}
+        return {
+            locus: results_by_locus.get(locus, model.QueryResult(model.ALLELE_MISSING, [], [model.Tag.ABSENT]))
+            for locus in all_loci
+        }
