@@ -47,7 +47,7 @@ class MistList:
 
         # Retrieve the available schemes
         schemes = self._downloader.get_available_schemes(furl(base_url), species=self._db is None)
-        if len(schemes) ==0:
+        if len(schemes) == 0:
             click.echo('No schemes found')
             raise RuntimeError('No schemes found')
 
@@ -66,4 +66,5 @@ class MistList:
         else:
             click.echo(
                 'Download the scheme using:\n'
-                f'mist download --downloader {self._downloader_key} --url {{URL}} --output {{DIR}}')
+                f'mist download --downloader {self._downloader_key} --url {{URL}} --output {{DIR}}'
+            )

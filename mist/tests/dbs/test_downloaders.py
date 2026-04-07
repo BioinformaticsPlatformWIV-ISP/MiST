@@ -57,9 +57,8 @@ class TestDownloaders(unittest.TestCase):
         with testingutils.get_temp_dir() as dir_temp:
             downloader = CgMLSTOrgDownloader()
             downloader.download_scheme(
-                url='https://www.cgmlst.org/ncs/schema/Cjejuni22/',
-                dir_out=Path(dir_temp),
-                include_profiles=False)
+                url='https://www.cgmlst.org/ncs/schema/Cjejuni22/', dir_out=Path(dir_temp), include_profiles=False
+            )
             self.assertTrue(TestDownloaders.download_succeeded(Path(dir_temp), with_profiles=False))
 
     def test_download_enterobase(self) -> None:
@@ -72,7 +71,8 @@ class TestDownloaders(unittest.TestCase):
             downloader.download_scheme(
                 url='https://enterobase.warwick.ac.uk/schemes/Yersinia.Achtman7GeneMLST/',
                 dir_out=Path(dir_temp),
-                include_profiles=True)
+                include_profiles=True,
+            )
             self.assertTrue(TestDownloaders.download_succeeded(Path(dir_temp), with_profiles=True))
 
     def test_download_pubmlst(self) -> None:
@@ -85,7 +85,8 @@ class TestDownloaders(unittest.TestCase):
             downloader.download_scheme(
                 url='https://rest.pubmlst.org/db/pubmlst_saureus_seqdef/schemes/1',
                 dir_out=Path(dir_temp),
-                include_profiles=True)
+                include_profiles=True,
+            )
             self.assertTrue(TestDownloaders.download_succeeded(Path(dir_temp), with_profiles=True))
 
     @unittest.skipUnless(os.environ.get('MIST_AUTH'), "Skipping test (MIST_AUTH not set).")
@@ -96,14 +97,12 @@ class TestDownloaders(unittest.TestCase):
         """
         with testingutils.get_temp_dir() as dir_temp:
             downloader = BIGSDbAuthDownloader(
-                site='PubMLST',
-                key_name='PubMLST',
-                dir_tokens=Path(os.environ.get('MIST_AUTH'))
+                site='PubMLST', key_name='PubMLST', dir_tokens=Path(os.environ.get('MIST_AUTH'))
             )
             downloader.download_scheme(
                 url='https://rest.pubmlst.org/db/pubmlst_saureus_seqdef/schemes/1',
                 dir_out=Path(dir_temp),
-                include_profiles=True
+                include_profiles=True,
             )
             self.assertTrue(TestDownloaders.download_succeeded(Path(dir_temp), with_profiles=True))
 

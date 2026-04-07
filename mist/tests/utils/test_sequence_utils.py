@@ -29,9 +29,7 @@ class TestSequenceUtils(unittest.TestCase):
         :return: None
         """
         seq_in = 'ACTAGATAGAC'
-        self.assertEqual(
-            seq_in, sequenceutils.rev_complement(sequenceutils.rev_complement(seq_in))
-        )
+        self.assertEqual(seq_in, sequenceutils.rev_complement(sequenceutils.rev_complement(seq_in)))
 
     def test_merge_fasta(self) -> None:
         """
@@ -45,11 +43,11 @@ class TestSequenceUtils(unittest.TestCase):
                 SeqIO.write([SeqRecord(Seq('ACTG'), 'a1'), SeqRecord(Seq('CTGA'), 'a2')], handle, 'fasta')
             path_fasta_b = Path(dir_temp, 'seqs_b.fasta')
             with path_fasta_b.open('w') as handle:
-                SeqIO.write([
-                    SeqRecord(Seq('CCTG'), 'b1'),
-                    SeqRecord(Seq('AAAA'), 'b2'),
-                    SeqRecord(Seq('TTTT'), 'b3')],
-                handle, 'fasta')
+                SeqIO.write(
+                    [SeqRecord(Seq('CCTG'), 'b1'), SeqRecord(Seq('AAAA'), 'b2'), SeqRecord(Seq('TTTT'), 'b3')],
+                    handle,
+                    'fasta',
+                )
 
             # Merge FASTA files
             path_merged = Path(dir_temp, 'merged.fasta')

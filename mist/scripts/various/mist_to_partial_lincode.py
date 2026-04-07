@@ -8,6 +8,7 @@ The JSON input file should be generated with the MiST software and the Institut 
 Example command:
 mist call --fasta my_kleb_genome.fasta --db kleb_scgmlst_s --output my_kleb_genome.json
 """
+
 import json
 import sys
 
@@ -15,7 +16,7 @@ MISMATCH_CUTOFFS = [629, 610, 585, 190, 43, 10, 7, 4, 2, 1]
 METADATA = [
     {'key': 'Phylogroup', 'bin_min': 2},
     {'key': 'Sublineage', 'bin_min': 3},
-    {'key': 'Clonal group', 'bin_min': 4}
+    {'key': 'Clonal group', 'bin_min': 4},
 ]
 
 
@@ -28,9 +29,10 @@ def determine_bin(nb_diff) -> int:
     for i, threshold in enumerate(MISMATCH_CUTOFFS):
         if i == len(MISMATCH_CUTOFFS) - 1:
             return i
-        if threshold >= nb_diff >= MISMATCH_CUTOFFS[i+1]:
+        if threshold >= nb_diff >= MISMATCH_CUTOFFS[i + 1]:
             return i
     raise ValueError('Cannot determine bin')
+
 
 def create_lin_code(lin_code_in: str, bin_: int) -> str:
     """

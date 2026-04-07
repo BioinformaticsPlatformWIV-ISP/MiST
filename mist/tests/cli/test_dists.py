@@ -44,12 +44,18 @@ class TestDists(unittest.TestCase):
             path_out_dists = Path(dir_temp, 'output_dists.tsv')
             path_out_matrix = Path(dir_temp, 'output_matrix.tsv')
             # noinspection PyTypeChecker
-            result = runner.invoke(cli, [
-                'dists',
-                *(str(x) for x in TestDists.get_output_files('.tsv')),
-                '--out-dists', str(path_out_dists),
-                '--out-matrix', str(path_out_matrix)
-            ], catch_exceptions=False)
+            result = runner.invoke(
+                cli,
+                [
+                    'dists',
+                    *(str(x) for x in TestDists.get_output_files('.tsv')),
+                    '--out-dists',
+                    str(path_out_dists),
+                    '--out-matrix',
+                    str(path_out_matrix),
+                ],
+                catch_exceptions=False,
+            )
 
             # Verify output
             self.assertTrue(self._is_valid_output_file(path_out_dists))
@@ -66,12 +72,17 @@ class TestDists(unittest.TestCase):
             path_out_dists = Path(dir_temp, 'output_dists.tsv')
             path_out_matrix = Path(dir_temp, 'output_matrix.tsv')
             # noinspection PyTypeChecker
-            result = runner.invoke(cli, [
-                'dists',
-                *(str(x) for x in TestDists.get_output_files('.json')),
-                '--out-dists', str(path_out_dists),
-                '--out-matrix', str(path_out_matrix)
-            ])
+            result = runner.invoke(
+                cli,
+                [
+                    'dists',
+                    *(str(x) for x in TestDists.get_output_files('.json')),
+                    '--out-dists',
+                    str(path_out_dists),
+                    '--out-matrix',
+                    str(path_out_matrix),
+                ],
+            )
 
             # Verify output
             self.assertTrue(self._is_valid_output_file(path_out_dists))
@@ -88,13 +99,18 @@ class TestDists(unittest.TestCase):
             path_out_dists = Path(dir_temp, 'output_dists.tsv')
             path_out_matrix = Path(dir_temp, 'output_matrix.tsv')
             # noinspection PyTypeChecker
-            result = runner.invoke(cli, [
-                'dists',
-                *(str(x) for x in TestDists.get_output_files('.json')[:2]),
-                *(str(x) for x in TestDists.get_output_files('.tsv')[2:]),
-                '--out-dists', str(path_out_dists),
-                '--out-matrix', str(path_out_matrix)
-            ])
+            result = runner.invoke(
+                cli,
+                [
+                    'dists',
+                    *(str(x) for x in TestDists.get_output_files('.json')[:2]),
+                    *(str(x) for x in TestDists.get_output_files('.tsv')[2:]),
+                    '--out-dists',
+                    str(path_out_dists),
+                    '--out-matrix',
+                    str(path_out_matrix),
+                ],
+            )
 
             # Verify output
             self.assertTrue(self._is_valid_output_file(path_out_dists))
@@ -111,12 +127,17 @@ class TestDists(unittest.TestCase):
             path_out_dists = Path(dir_temp, 'output_dists.tsv')
             path_out_matrix = Path(dir_temp, 'output_matrix.tsv')
             # noinspection PyTypeChecker
-            result = runner.invoke(cli, [
-                'dists',
-                next(str(x) for x in TestDists.get_output_files('.json')),
-                '--out-dists', str(path_out_dists),
-                '--out-matrix', str(path_out_matrix)
-            ])
+            result = runner.invoke(
+                cli,
+                [
+                    'dists',
+                    next(str(x) for x in TestDists.get_output_files('.json')),
+                    '--out-dists',
+                    str(path_out_dists),
+                    '--out-matrix',
+                    str(path_out_matrix),
+                ],
+            )
             self.assertNotEqual(result.exit_code, 0)
 
 

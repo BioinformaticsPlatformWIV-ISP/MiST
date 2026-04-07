@@ -29,15 +29,12 @@ def create_index(path_fasta: Path) -> Path:
     :return: None
     """
     path_out = path_fasta.parent / f'{path_fasta.name}.mni'
-    command = Command(' '.join([
-        'minimap2',
-        '-d', str(path_out),
-        str(path_fasta)
-    ]))
+    command = Command(' '.join(['minimap2', '-d', str(path_out), str(path_fasta)]))
     command.run(path_fasta.parent, disable_logging=False)
     if not command.exit_code == 0:
         raise RuntimeError(f'Error creating Minimap2 index: {command.stderr}')
     return path_out
+
 
 def align(path_fasta: Path, path_fasta_db: Path, include_cigar: bool = False, threads: int = 1) -> pd.DataFrame:
     """
@@ -48,14 +45,20 @@ def align(path_fasta: Path, path_fasta_db: Path, include_cigar: bool = False, th
     :param threads: Number of threads to use
     :return: Output results as DataFrame
     """
-    command = Command(' '.join([
-        'minimap2',
-        str(path_fasta_db),
-        str(path_fasta),
-        '-O 25 -E 1', # ungapped alignment
-        '-N 10 --all-chain', # include secondary alignments
-        '-t', str(threads) # nb. of threads
-    ] + (['-c'] if include_cigar else [])))
+    command = Command(
+        ' '.join(
+            [
+                'minimap2',
+                str(path_fasta_db),
+                str(path_fasta),
+                '-O 25 -E 1',  # ungapped alignment
+                '-N 10 --all-chain',  # include secondary alignments
+                '-t',
+                str(threads),  # nb. of threads
+            ]
+            + (['-c'] if include_cigar else [])
+        )
+    )
     command.run(Path().cwd(), disable_logging=False)
     if not command.exit_code == 0:
         raise RuntimeError(f'Error running Minimap2: {command.stderr}')

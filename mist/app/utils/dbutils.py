@@ -18,6 +18,7 @@ def is_valid_db(dir_in: Path) -> bool:
         raise FileNotFoundError("'loci_repr.fasta' file not found")
     return True
 
+
 def _get_allele_id(seq_record: SeqIO.SeqRecord, locus_name: str, requires_match: bool = False) -> str:
     """
     Returns the allele id from the input SeqRecord
@@ -54,12 +55,9 @@ def reformat_fasta(fasta_in: Path, fasta_out: Path) -> None:
             except ValueError:
                 seq_ids_match_name = False
                 allele_id = _get_allele_id(seq, locus_name, requires_match=False)
-            seq_out = SeqIO.SeqRecord(
-                id=allele_id,
-                description='',
-                seq=seq.seq
-            )
+            seq_out = SeqIO.SeqRecord(id=allele_id, description='', seq=seq.seq)
             SeqIO.write(seq_out, handle_out, 'fasta')
     if not seq_ids_match_name:
         logger.warning(
-            f"FASTA file '{fasta_in.name}' contains sequences that do not match the locus name '{locus_name}'.")
+            f"FASTA file '{fasta_in.name}' contains sequences that do not match the locus name '{locus_name}'."
+        )

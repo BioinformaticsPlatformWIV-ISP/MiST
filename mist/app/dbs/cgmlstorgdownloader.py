@@ -20,9 +20,7 @@ class CgMLSTOrgDownloader(BaseDownloader):
     DOWNLOADER_KEY = 'cgmlstorg'
 
     @staticmethod
-    def retrieve_page_data(
-        url: str, retries: int = 3, timeout: int = 60 * 5
-    ) -> requests.Response:
+    def retrieve_page_data(url: str, retries: int = 3, timeout: int = 60 * 5) -> requests.Response:
         """
         Retrieves data from the given URL.
         :param url: URL
@@ -37,9 +35,7 @@ class CgMLSTOrgDownloader(BaseDownloader):
                 response.raise_for_status()
                 return response
             except BaseException as err:
-                logger.warning(
-                    f'Error retrieving page data ({err}), retrying (attempt {retry + 1})'
-                )
+                logger.warning(f'Error retrieving page data ({err}), retrying (attempt {retry + 1})')
                 error = err
                 time.sleep(1)
         raise RuntimeError(f'Error retrieving page data: {url}: {error}')

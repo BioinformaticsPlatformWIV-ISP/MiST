@@ -23,12 +23,16 @@ class TestIndex(unittest.TestCase):
         with testingutils.get_temp_dir() as dir_temp:
             # noinspection PyTypeChecker
             result = runner.invoke(
-                cli,[
+                cli,
+                [
                     'index',
                     str(files('mist').joinpath('resources/testdata/NEIS0140-subset.fasta')),
-                    '--output', str(dir_temp),
-                    '--threads', '4'
-                ], catch_exceptions=False
+                    '--output',
+                    str(dir_temp),
+                    '--threads',
+                    '4',
+                ],
+                catch_exceptions=False,
             )
             logger.info(result.output)
             self.assertTrue(result.exit_code == 0)
@@ -43,13 +47,17 @@ class TestIndex(unittest.TestCase):
         with testingutils.get_temp_dir() as dir_temp:
             # noinspection PyTypeChecker
             result = runner.invoke(
-                cli, [
+                cli,
+                [
                     'index',
                     str(files('mist').joinpath('resources/testdata/NEIS0140-subset.fasta')),
-                    '--output', str(dir_temp),
-                    '--threads', '4',
+                    '--output',
+                    str(dir_temp),
+                    '--threads',
+                    '4',
                     '--debug',
-                ], catch_exceptions=False
+                ],
+                catch_exceptions=False,
             )
             logger.info(result.output)
             self.assertTrue(dbutils.is_valid_db(Path(dir_temp)))
@@ -70,12 +78,16 @@ class TestIndex(unittest.TestCase):
         with testingutils.get_temp_dir() as dir_temp:
             # noinspection PyTypeChecker
             result = runner.invoke(
-                cli, [
+                cli,
+                [
                     'index',
                     str(files('mist').joinpath('resources/testdata/NEIS0140-fmt.fasta')),
-                    '--output', str(dir_temp),
-                    '--threads', '4'
-                ], catch_exceptions=False
+                    '--output',
+                    str(dir_temp),
+                    '--threads',
+                    '4',
+                ],
+                catch_exceptions=False,
             )
             logger.info(result.output)
             self.assertTrue(dbutils.is_valid_db(Path(dir_temp)))
@@ -97,12 +109,17 @@ class TestIndex(unittest.TestCase):
             # Index the database
             # noinspection PyTypeChecker
             result = runner.invoke(
-                cli, [
+                cli,
+                [
                     'index',
-                    '--fasta-list', str(path_txt),
-                    '--output', str(dir_temp),
-                    '--threads', '4',
-                ], catch_exceptions=False
+                    '--fasta-list',
+                    str(path_txt),
+                    '--output',
+                    str(dir_temp),
+                    '--threads',
+                    '4',
+                ],
+                catch_exceptions=False,
             )
             logger.info(result.output)
             self.assertTrue(dbutils.is_valid_db(Path(dir_temp)))

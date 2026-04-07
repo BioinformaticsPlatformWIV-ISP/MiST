@@ -36,6 +36,7 @@ def cli() -> None:
     """
     pass
 
+
 @cli.command(name='index')
 @click.argument("fasta", nargs=-1, type=click.Path(exists=True))
 @click.option("-l", "--fasta-list", type=click.Path(path_type=Path, exists=True), help="List with input FASTA path(s)")
@@ -45,14 +46,15 @@ def cli() -> None:
 @click.option("-t", "--threads", type=int, default=1, show_default=True, help="Number of threads to use")
 @_common_options
 def index_(
-        fasta: list[Path],
-        fasta_list: Path,
-        profiles: Path | None,
-        output: Path,
-        cutoff: int,
-        threads: int,
-        debug: bool,
-        log: Path) -> None:
+    fasta: list[Path],
+    fasta_list: Path,
+    profiles: Path | None,
+    output: Path,
+    cutoff: int,
+    threads: int,
+    debug: bool,
+    log: Path,
+) -> None:
     """
     Creates a MIST index for a set of input FASTA files.
     """
@@ -70,17 +72,18 @@ def index_(
         raise click.UsageError("No input FASTA file(s) provided.")
 
     # Run the indexer
-    indexer = MistIndex(
-        paths_fasta=paths_fasta,
-        path_profiles=profiles,
-        cutoff=cutoff,
-        debug=debug
-    )
+    indexer = MistIndex(paths_fasta=paths_fasta, path_profiles=profiles, cutoff=cutoff, debug=debug)
     indexer.create_index(dir_out=output.expanduser().resolve(), threads=threads)
 
 
 @cli.command()
-@click.option("-f", "--fasta", type=click.Path(exists=True, path_type=Path, dir_okay=False), required=True, help="Input FASTA path")
+@click.option(
+    "-f",
+    "--fasta",
+    type=click.Path(exists=True, path_type=Path, dir_okay=False),
+    required=True,
+    help="Input FASTA path",
+)
 @click.option("-d", "--db", type=click.Path(exists=True, path_type=Path), required=True, help="Database path")
 @click.option("-o", "--out-json", type=click.Path(), default=None, help="JSON output file")
 @click.option("-t", "--threads", type=int, default=1, show_default=True, help="Number of threads to use")
@@ -91,25 +94,31 @@ def index_(
 @click.option("--min-id-novel", type=int, default=99, show_default=True, help="Minimum % identity for novel alleles")
 @click.option("--sample-id", help="Sample identifier to include in the output file(s).")
 @click.option(
-    "-m", "--multi", type=click.Choice([s.value for s in MultiStrategy]), default=MultiStrategy.ALL.value,
-    show_default=True, help="Strategy to handle multiple perfect hits")
+    "-m",
+    "--multi",
+    type=click.Choice([s.value for s in MultiStrategy]),
+    default=MultiStrategy.ALL.value,
+    show_default=True,
+    help="Strategy to handle multiple perfect hits",
+)
 @click.option("--loci", help="Limit to these loci, provided as comma seperated string (e.g., 'abcZ,fumC')")
 @_common_options
 def call(
-        fasta: Path,
-        db: Path,
-        out_json: Path,
-        out_tsv: Path,
-        out_dir: Path,
-        export_novel: bool,
-        keep_minimap2: bool,
-        threads: int,
-        min_id_novel: int,
-        multi: str,
-        sample_id: str | None,
-        loci: str | None,
-        debug: bool,
-        log: Path) -> None:
+    fasta: Path,
+    db: Path,
+    out_json: Path,
+    out_tsv: Path,
+    out_dir: Path,
+    export_novel: bool,
+    keep_minimap2: bool,
+    threads: int,
+    min_id_novel: int,
+    multi: str,
+    sample_id: str | None,
+    loci: str | None,
+    debug: bool,
+    log: Path,
+) -> None:
     """
     Calls alleles from a FASTA file.
     """
@@ -140,15 +149,10 @@ def call(
         keep_minimap2=keep_minimap2,
         loci=loci.split(',') if loci else None,
         export_novel=export_novel,
-        min_id_novel=min_id_novel
+        min_id_novel=min_id_novel,
     )
     caller.call_alleles(
-        path_fasta=fasta,
-        out_json=out_json_,
-        out_tsv=out_tsv,
-        out_dir=out_dir,
-        sample_id=sample_id,
-        threads=threads
+        path_fasta=fasta, out_json=out_json_, out_tsv=out_tsv, out_dir=out_dir, sample_id=sample_id, threads=threads
     )
     logger.info("Make sure to cite the corresponding database when using this in your research")
     path_citation = files('mist').joinpath('resources/citation.txt')
@@ -158,23 +162,37 @@ def call(
 
 @cli.command()
 @click.option("--url", required=True, help="URL to download from.")
-@click.option("-o", "--output", type=click.Path(path_type=Path), default=Path("mist_download"), show_default=True, help="Output directory")
+@click.option(
+    "-o",
+    "--output",
+    type=click.Path(path_type=Path),
+    default=Path("mist_download"),
+    show_default=True,
+    help="Output directory",
+)
 @click.option("-p", "--include-profiles", is_flag=True, help="Download the profiles")
 @click.option("-d", "--downloader", type=click.Choice(list(DOWNLOADERS.keys())), required=True, help="Downloader")
-@click.option("--dir-tokens", type=click.Path(path_type=Path), default=Path.cwd() / ".bigsdb_tokens", show_default=True, help="Directory with access tokens")
+@click.option(
+    "--dir-tokens",
+    type=click.Path(path_type=Path),
+    default=Path.cwd() / ".bigsdb_tokens",
+    show_default=True,
+    help="Directory with access tokens",
+)
 @click.option("--key-name", default="PubMLST", show_default=True, help="Key name")
 @click.option("--site", default="PubMLST", show_default=True, help="Site")
 @_common_options
 def download(
-        url: str,
-        output: Path,
-        include_profiles: bool,
-        downloader: str,
-        dir_tokens: Path,
-        key_name: str,
-        site: str,
-        debug: bool,
-        log: Path) -> None:
+    url: str,
+    output: Path,
+    include_profiles: bool,
+    downloader: str,
+    dir_tokens: Path,
+    key_name: str,
+    site: str,
+    debug: bool,
+    log: Path,
+) -> None:
     """
     Download (cg)MLST schemes from various sources.
     """
@@ -186,25 +204,55 @@ def download(
         downloader=downloader,
         dir_tokens=dir_tokens,
         key_name=key_name,
-        site=site
+        site=site,
     )
     downloader.run()
 
+
 @cli.command()
 @click.argument('inputs', nargs=-1)
-@click.option("-d", "--out-dists", type=click.Path(path_type=Path), default=Path("distances.tsv"), show_default=True, help="Distance matrix output")
-@click.option("-m", "--out-matrix", type=click.Path(path_type=Path), default=Path("allele_matrix.tsv"), show_default=True, help="Allele matrix output")
-@click.option("-l", "--min-perc-loci", type=int, default=90, show_default=True, help="Minimum percentage of loci that should be present in a dataset")
-@click.option("-s", "--min-perc-samples", type=int, default=90, show_default=True, help="Minimum percentage of datasets where loci should be present")
+@click.option(
+    "-d",
+    "--out-dists",
+    type=click.Path(path_type=Path),
+    default=Path("distances.tsv"),
+    show_default=True,
+    help="Distance matrix output",
+)
+@click.option(
+    "-m",
+    "--out-matrix",
+    type=click.Path(path_type=Path),
+    default=Path("allele_matrix.tsv"),
+    show_default=True,
+    help="Allele matrix output",
+)
+@click.option(
+    "-l",
+    "--min-perc-loci",
+    type=int,
+    default=90,
+    show_default=True,
+    help="Minimum percentage of loci that should be present in a dataset",
+)
+@click.option(
+    "-s",
+    "--min-perc-samples",
+    type=int,
+    default=90,
+    show_default=True,
+    help="Minimum percentage of datasets where loci should be present",
+)
 @_common_options
 def dists(
-        inputs: tuple[Path],
-        out_dists: Path,
-        out_matrix: Path,
-        min_perc_loci: int,
-        min_perc_samples: int,
-        debug: bool,
-        log: Path) -> None:
+    inputs: tuple[Path],
+    out_dists: Path,
+    out_matrix: Path,
+    min_perc_loci: int,
+    min_perc_samples: int,
+    debug: bool,
+    log: Path,
+) -> None:
     """
     Builds distance and allele matrices from MiST output files.
     """
@@ -217,9 +265,10 @@ def dists(
         out_matrix=out_matrix,
         out_dists=out_dists,
         min_perc_loci=min_perc_loci,
-        min_perc_samples=min_perc_samples
+        min_perc_samples=min_perc_samples,
     )
     mist_dists.run()
+
 
 @cli.command(name='list')
 @click.option('-d', '--downloader', type=click.Choice(list(DOWNLOADERS.keys())), required=True, help="Downloader")
@@ -234,11 +283,7 @@ def list_(downloader: str, host: str | None, db: str) -> None:
         raise click.UsageError("--host option is required for this downloader. Valid options: 'pubmlst' or 'pasteur'.")
 
     # Retrieve available schemes
-    mist_list = MistList(
-        downloader=downloader,
-        host=host,
-        db=db
-    )
+    mist_list = MistList(downloader=downloader, host=host, db=db)
     mist_list.print_available_schemes()
 
 

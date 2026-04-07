@@ -8,8 +8,16 @@ class MistDownload:
     Wrapper for downloading schemes.
     """
 
-    def __init__(self, url: str, output: Path, include_profiles: bool, downloader: str, dir_tokens: Path, key_name: str,
-                 site: str) -> None:
+    def __init__(
+        self,
+        url: str,
+        output: Path,
+        include_profiles: bool,
+        downloader: str,
+        dir_tokens: Path,
+        key_name: str,
+        site: str,
+    ) -> None:
         """
         Initialize the scheme download class.
         :param url: Scheme URL

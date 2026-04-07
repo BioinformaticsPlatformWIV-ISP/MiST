@@ -33,12 +33,7 @@ class TestList(unittest.TestCase):
         """
         runner = CliRunner()
         # noinspection PyTypeChecker
-        result = runner.invoke(
-            cli,[
-                'list',
-                '--downloader', 'cgmlstorg'
-            ], catch_exceptions=False
-        )
+        result = runner.invoke(cli, ['list', '--downloader', 'cgmlstorg'], catch_exceptions=False)
         schemes = TestList._parse_stdout(result.output)
         self.assertGreater(len(schemes), 20, "Fewer schemes listed than expected")
         self.assertTrue(result.exit_code == 0)
@@ -50,12 +45,7 @@ class TestList(unittest.TestCase):
         """
         runner = CliRunner()
         # noinspection PyTypeChecker
-        result = runner.invoke(
-            cli,[
-                'list',
-                '--downloader', 'enterobase'
-            ], catch_exceptions=False
-        )
+        result = runner.invoke(cli, ['list', '--downloader', 'enterobase'], catch_exceptions=False)
         schemes = TestList._parse_stdout(result.output)
         self.assertGreater(len(schemes), 10, "Fewer schemes listed than expected")
         self.assertTrue(result.exit_code == 0)
@@ -67,13 +57,7 @@ class TestList(unittest.TestCase):
         """
         runner = CliRunner()
         # noinspection PyTypeChecker
-        result = runner.invoke(
-            cli,[
-                'list',
-                '--downloader', 'bigsdb',
-                '--host', 'pubmlst'
-            ], catch_exceptions=False
-        )
+        result = runner.invoke(cli, ['list', '--downloader', 'bigsdb', '--host', 'pubmlst'], catch_exceptions=False)
         schemes = TestList._parse_stdout(result.output)
         self.assertGreater(len(schemes), 50, "Fewer schemes listed than expected")
         self.assertTrue(result.exit_code == 0)
@@ -85,13 +69,7 @@ class TestList(unittest.TestCase):
         """
         runner = CliRunner()
         # noinspection PyTypeChecker
-        result = runner.invoke(
-            cli,[
-                'list',
-                '--downloader', 'bigsdb',
-                '--host', 'pubmlst'
-            ], catch_exceptions=False
-        )
+        result = runner.invoke(cli, ['list', '--downloader', 'bigsdb', '--host', 'pubmlst'], catch_exceptions=False)
         schemes = TestList._parse_stdout(result.output)
         self.assertGreater(len(schemes), 10, "Fewer schemes listed than expected")
         self.assertTrue(result.exit_code == 0)
@@ -106,11 +84,16 @@ class TestList(unittest.TestCase):
         # Retrieve the species
         # noinspection PyTypeChecker
         result = runner.invoke(
-            cli,[
+            cli,
+            [
                 'list',
-                '--downloader', 'bigsdb',
-                '--host', 'pubmlst',
-            ], catch_exceptions=False)
+                '--downloader',
+                'bigsdb',
+                '--host',
+                'pubmlst',
+            ],
+            catch_exceptions=False,
+        )
         species = TestList._parse_stdout(result.output)
 
         # Retrieve the DB name for Neisseria
@@ -119,12 +102,9 @@ class TestList(unittest.TestCase):
         # noinspection PyTypeChecker
         result = runner.invoke(
             cli,
-            [
-                'list',
-                '--downloader', 'bigsdb',
-                '--host', 'pubmlst',
-                '--db', neisseria_db_name
-            ], catch_exceptions=False)
+            ['list', '--downloader', 'bigsdb', '--host', 'pubmlst', '--db', neisseria_db_name],
+            catch_exceptions=False,
+        )
         schemes = TestList._parse_stdout(result.output)
         self.assertGreater(len(schemes), 20, "Fewer schemes listed than expected")
         self.assertTrue(result.exit_code == 0)
@@ -139,11 +119,16 @@ class TestList(unittest.TestCase):
         # Retrieve the species
         # noinspection PyTypeChecker
         result = runner.invoke(
-            cli,[
+            cli,
+            [
                 'list',
-                '--downloader', 'bigsdb',
-                '--host', 'pasteur',
-            ], catch_exceptions=False)
+                '--downloader',
+                'bigsdb',
+                '--host',
+                'pasteur',
+            ],
+            catch_exceptions=False,
+        )
         species = TestList._parse_stdout(result.output)
 
         # Retrieve the DB name for Neisseria
@@ -151,13 +136,8 @@ class TestList(unittest.TestCase):
 
         # noinspection PyTypeChecker
         result = runner.invoke(
-            cli,
-            [
-                'list',
-                '--downloader', 'bigsdb',
-                '--host', 'pasteur',
-                '--db', db_name
-            ], catch_exceptions=False)
+            cli, ['list', '--downloader', 'bigsdb', '--host', 'pasteur', '--db', db_name], catch_exceptions=False
+        )
         schemes = TestList._parse_stdout(result.output)
         self.assertGreater(len(schemes), 20, "Fewer schemes listed than expected")
         self.assertTrue(result.exit_code == 0)

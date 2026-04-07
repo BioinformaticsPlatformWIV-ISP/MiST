@@ -50,10 +50,12 @@ def extract_hashes(path_fasta: Path, ori_by_seq_id: dict[str, str]) -> pd.DataFr
                 seq = str(record.seq)
             else:
                 seq = rev_complement(record.seq)
-            records_out.append({
-                'seq_id': record.id,
-                'hash': hash_sequence(seq),
-            })
+            records_out.append(
+                {
+                    'seq_id': record.id,
+                    'hash': hash_sequence(seq),
+                }
+            )
     data_out = pd.DataFrame(records_out)
     data_out['allele_id'] = data_out['seq_id'].apply(lambda x: re.search(REGEX_ALLELE, x).group(1))
     return data_out

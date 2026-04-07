@@ -22,8 +22,15 @@ class MistCaller:
     Main class to call alleles.
     """
 
-    def __init__(self, dir_db: Path, multi: str, loci: list[str] | None = None, keep_minimap2: bool = False,
-                 export_novel: bool = False, min_id_novel: int = 99) -> None:
+    def __init__(
+        self,
+        dir_db: Path,
+        multi: str,
+        loci: list[str] | None = None,
+        keep_minimap2: bool = False,
+        export_novel: bool = False,
+        min_id_novel: int = 99,
+    ) -> None:
         """
         Initializes a query.
         :param dir_db: Database directory
@@ -48,26 +55,39 @@ class MistCaller:
         :param result_by_locus: Results by locus.
         :return: DataFrame
         """
-        data_out = pd.DataFrame([{
-            # Main result
-            'locus': locus,
-            'allele': res.allele_str,
-            'length': ';'.join(str(x.length) for x in res.allele_results) if len(res.allele_results) > 0 else '-',
-
-            # Location in genome
-            'contig': ';'.join(x.alignment.seq_id for x in res.allele_results) if len(res.allele_results) > 0 else '-',
-            'start': ';'.join(str(x.alignment.start) for x in res.allele_results) if len(res.allele_results) > 0 else '-',
-            'end': ';'.join(str(x.alignment.end) for x in res.allele_results) if len(res.allele_results) > 0 else '-',
-            'strand': ';'.join(str(x.alignment.strand) for x in res.allele_results) if len(res.allele_results) > 0 else '-',
-
-            # Novel alleles
-            'is_novel': model.Tag.NOVEL in res.tags,
-            'closest_alleles': ';'.join(res.allele_results[0].closest_alleles) if model.Tag.NOVEL in res.tags else '-',
-
-            # Additional tags
-            'tags': ';'.join(t.value for t in res.tags) if len(res.tags) > 0 else '-'}
-            for locus, res in result_by_locus.items()
-        ])
+        data_out = pd.DataFrame(
+            [
+                {
+                    # Main result
+                    'locus': locus,
+                    'allele': res.allele_str,
+                    'length': ';'.join(str(x.length) for x in res.allele_results)
+                    if len(res.allele_results) > 0
+                    else '-',
+                    # Location in genome
+                    'contig': ';'.join(x.alignment.seq_id for x in res.allele_results)
+                    if len(res.allele_results) > 0
+                    else '-',
+                    'start': ';'.join(str(x.alignment.start) for x in res.allele_results)
+                    if len(res.allele_results) > 0
+                    else '-',
+                    'end': ';'.join(str(x.alignment.end) for x in res.allele_results)
+                    if len(res.allele_results) > 0
+                    else '-',
+                    'strand': ';'.join(str(x.alignment.strand) for x in res.allele_results)
+                    if len(res.allele_results) > 0
+                    else '-',
+                    # Novel alleles
+                    'is_novel': model.Tag.NOVEL in res.tags,
+                    'closest_alleles': ';'.join(res.allele_results[0].closest_alleles)
+                    if model.Tag.NOVEL in res.tags
+                    else '-',
+                    # Additional tags
+                    'tags': ';'.join(t.value for t in res.tags) if len(res.tags) > 0 else '-',
+                }
+                for locus, res in result_by_locus.items()
+            ]
+        )
 
         # noinspection PyTypeChecker,PyUnresolvedReferences
         nb_detected = (data_out['allele'] != '-').sum()
@@ -79,7 +99,8 @@ class MistCaller:
         return data_out
 
     def _export_novel_allele_seqs(
-            self, data_results: pd.DataFrame, res_by_locus: dict[str, model.QueryResult], dir_out: Path) -> None:
+        self, data_results: pd.DataFrame, res_by_locus: dict[str, model.QueryResult], dir_out: Path
+    ) -> None:
         """
         Exports the novel allele sequences.
         :param data_results: DataFrame with typing results
@@ -92,15 +113,19 @@ class MistCaller:
             dir_novel_alleles.mkdir(parents=True, exist_ok=True)
             allele_id = res_by_locus[locus].allele_str.replace('*', '')
             with open(dir_novel_alleles / f'{locus}-{allele_id}.fasta', 'w') as handle:
-                SeqIO.write(SeqRecord(
-                    id=f'{locus}_{allele_id}',
-                    description=f"closest_match={','.join(res_by_locus[locus].allele_results[0].closest_alleles)}",
-                    seq=Seq(res_by_locus[locus].allele_results[0].sequence),
-                ), handle, 'fasta')
+                SeqIO.write(
+                    SeqRecord(
+                        id=f'{locus}_{allele_id}',
+                        description=f"closest_match={','.join(res_by_locus[locus].allele_results[0].closest_alleles)}",
+                        seq=Seq(res_by_locus[locus].allele_results[0].sequence),
+                    ),
+                    handle,
+                    'fasta',
+                )
 
     def call_alleles(
-            self, path_fasta: Path, out_json: Path, out_dir: Path, out_tsv: Path, sample_id: str | None,
-            threads: int) -> None:
+        self, path_fasta: Path, out_json: Path, out_dir: Path, out_tsv: Path, sample_id: str | None, threads: int
+    ) -> None:
         """
         Calls the alleles from the input FASTA file.
         :param path_fasta: Input FASTA path
@@ -136,8 +161,14 @@ class MistCaller:
 
         # Create output files
         self._export_json(
-            result_by_locus, path_in=path_fasta, path_out=out_json, profile=profile, nb_matches=nb_matches,
-            pct_match=pct_match, sample_id=sample_id)
+            result_by_locus,
+            path_in=path_fasta,
+            path_out=out_json,
+            profile=profile,
+            nb_matches=nb_matches,
+            pct_match=pct_match,
+            sample_id=sample_id,
+        )
         if self._export_novel and data_results['is_novel'].sum() > 0:
             logger.info("Exporting novel allele sequences")
             self._export_novel_allele_seqs(data_results, result_by_locus, out_dir)
@@ -150,8 +181,15 @@ class MistCaller:
                 data_results.to_csv(handle, sep='\t', index=False)
 
     def _export_json(
-            self, results_by_locus: dict[str, model.QueryResult], path_in: Path, path_out: Path, profile: model.Profile,
-            nb_matches: int | None, pct_match: float | None, sample_id: str | None) -> None:
+        self,
+        results_by_locus: dict[str, model.QueryResult],
+        path_in: Path,
+        path_out: Path,
+        profile: model.Profile,
+        nb_matches: int | None,
+        pct_match: float | None,
+        sample_id: str | None,
+    ) -> None:
         """
         Exports the results in JSON format.
         :param results_by_locus: Result(s) by locus
@@ -172,21 +210,22 @@ class MistCaller:
             data_db = None
 
         with open(path_out, 'w') as handle:
-            json.dump({
-                'alleles': {locus: dataclasses.asdict(res) for locus, res in results_by_locus.items()},
-                'profile': {
-                    **dataclasses.asdict(profile),
-                    'pct_match': pct_match,
-                    'nb_matches': nb_matches
-                } if profile is not None else None,
-                'metadata': {
-                    'timestamp': datetime.now().isoformat(),
-                    'tool_version': __version__,
-                    'db': data_db if data_db else 'n/a',
-                    'input': {
-                        'path': str(path_in),
-                        'sample_id': sample_id
-                    }
-                }
-            }, handle, indent=2, cls=CustomEncoder, sort_keys=True)
+            json.dump(
+                {
+                    'alleles': {locus: dataclasses.asdict(res) for locus, res in results_by_locus.items()},
+                    'profile': {**dataclasses.asdict(profile), 'pct_match': pct_match, 'nb_matches': nb_matches}
+                    if profile is not None
+                    else None,
+                    'metadata': {
+                        'timestamp': datetime.now().isoformat(),
+                        'tool_version': __version__,
+                        'db': data_db if data_db else 'n/a',
+                        'input': {'path': str(path_in), 'sample_id': sample_id},
+                    },
+                },
+                handle,
+                indent=2,
+                cls=CustomEncoder,
+                sort_keys=True,
+            )
         logger.info(f'Output stored in: {path_out}')

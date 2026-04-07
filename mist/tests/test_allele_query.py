@@ -149,5 +149,6 @@ class TestAlleleQuery(unittest.TestCase):
             expected_tag = TestAlleleQuery.get_expected_tag(allele_by_locus[locus])
             self.assertIn(expected_tag, res.tags, f"No exact match for {locus}")
 
+
 if __name__ == '__main__':
     unittest.main()

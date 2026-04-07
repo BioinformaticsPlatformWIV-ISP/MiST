@@ -36,11 +36,7 @@ class ImperfectMatchDetector:
         records_in = []
         with (self._dir_in / f'{self._dir_in.name}.fasta').open() as handle:
             for seq in SeqIO.parse(handle, 'fasta'):
-                records_in.append({
-                    'id': seq.id,
-                    'seq': str(seq.seq),
-                    'length': len(seq)
-                })
+                records_in.append({'id': seq.id, 'seq': str(seq.seq), 'length': len(seq)})
         self._data_seqs_db = pd.DataFrame(records_in)
         logger.debug(f'Parsed: {len(self._data_seqs_db):,} sequences ({dir_in.name})')
 
@@ -57,7 +53,8 @@ class ImperfectMatchDetector:
             viable_lengths = list(self._data_seqs_db['length'].unique())
             logger.debug(
                 f"Length of detected sequence ({len(seq):,}) does not match any alleles in the "
-                f"database ({', '.join(str(l) for l in sorted(viable_lengths))})")
+                f"database ({', '.join(str(l) for l in sorted(viable_lengths))})"
+            )
             raise InvalidLengthException(len(seq), viable_lengths)
 
         data_subset['nb_matches'] = data_subset['seq'].apply(lambda x: sum(c1 == c2 for c1, c2 in zip(x, seq)))
