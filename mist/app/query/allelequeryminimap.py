@@ -4,6 +4,8 @@ from pathlib import Path
 from typing import Optional
 
 import pandas as pd
+import polars as pl
+import orjson
 
 from mist.app import model
 from mist.app.loggers.logger import logger
@@ -20,6 +22,7 @@ class MultiStrategy(Enum):
     """
     Strategy to handle multiple perfect hits.
     """
+
     ALL = 'all'
     FIRST = 'first'
     LONGEST = 'longest'
@@ -54,12 +57,12 @@ class AlleleQueryMinimap2:
     """
 
     def __init__(
-            self,
-            dir_db: Path,
-            dir_out: Optional[Path] = None,
-            multi_strategy: MultiStrategy = MultiStrategy.LONGEST,
-            min_id_novel: int = 99,
-            save_minimap2: bool = False
+        self,
+        dir_db: Path,
+        dir_out: Optional[Path] = None,
+        multi_strategy: MultiStrategy = MultiStrategy.LONGEST,
+        min_id_novel: int = 99,
+        save_minimap2: bool = False,
     ) -> None:
         """
         Initializes this class.
@@ -109,11 +112,9 @@ class AlleleQueryMinimap2:
         return model.AlleleResult(
             allele=allele,
             alignment=model.Alignment(
-                seq_id=row['query_name'],
-                start=row['query_start'],
-                end=row['query_end'],
-                strand=row['sstrand']),
-            length=len(seq)
+                seq_id=row['query_name'], start=row['query_start'], end=row['query_end'], strand=row['sstrand']
+            ),
+            length=len(seq),
         )
 
     def _extract_partial_match(self, df_alignment: pd.DataFrame, locus_name: str) -> model.QueryResult | None:
@@ -168,6 +169,44 @@ class AlleleQueryMinimap2:
             tags=[model.Tag.NOVEL],
         )
 
+    def _process_locus_polars(self, locus_name: str, df_alignment: pl.DataFrame) -> model.QueryResult:
+        """
+        Types the input locus.
+        :param locus_name: Locus name
+        :param df_alignment: Alignment data
+        :return: Results for the locus
+        """
+        # Parse database information
+        dir_locus = self._dir_db / locus_name
+        with open(dir_locus / 'mist_db.json', 'rb') as handle: # Open in binary
+            data_locus = orjson.loads(handle.read())
+
+        # Process seed alignments
+        matches = []
+        for row in df_alignment.iter_rows(named=True):
+            # row is now a dictionary: {'query_name': '...', 'query_start': 123, ...}
+            seq = self._seq_holder.get_seq(row['query_name'], row['query_start'], row['query_end'])
+
+            if not seq:  # More concise than (seq is None) or (len(seq) == 0)
+                continue
+
+            match_perfect = self._extract_exact_match(seq, row, data_locus)
+            if match_perfect is not None:
+                matches.append(match_perfect)
+
+        # Check if perfect matches have been found
+        matches.sort(key=lambda res: data_locus['alleles'][res.allele]['idx'])
+        if len(matches) > 0:
+            return model.QueryResult(
+                merge_results(matches, self._multi_strategy.value),
+                allele_results=matches,
+                tags=[model.Tag.MULTI] if len(matches) > 1 else [model.Tag.EXACT],
+            )
+
+        # Check imperfect matches
+        logger.debug(f'Screening for imperfect hits for: {locus_name}')
+        return self._extract_partial_match(df_alignment, locus_name)
+
     def _process_locus(self, locus_name: str, df_alignment: pd.DataFrame) -> model.QueryResult:
         """
         Types the input locus.
@@ -206,11 +245,7 @@ class AlleleQueryMinimap2:
         logger.debug(f'Screening for imperfect hits for: {locus_name}')
         return self._extract_partial_match(df_alignment, locus_name)
 
-    def query(
-            self,
-            path_fasta: Path,
-            loci: list[str] | None = None,
-            threads: int = 1) -> dict[str, model.QueryResult]:
+    def query(self, path_fasta: Path, loci: list[str] | None = None, threads: int = 1) -> dict[str, model.QueryResult]:
         """
         Queries the database with the given FASTA file.
         :param path_fasta: Input FASTA file
@@ -225,8 +260,11 @@ class AlleleQueryMinimap2:
         # Seed alignment
         logger.info('Performing seed alignment with Minimap2')
         data_mm2 = minimap2utils.align(
-            path_fasta, self._dir_db / 'loci_repr.fasta', include_cigar=False, threads=threads)
-        logger.info(f'{len(data_mm2):,} seed alignments')
+            path_fasta, self._dir_db / 'loci_repr.fasta', include_cigar=False, threads=threads
+        )
+        data_mm2_pl = pl.from_pandas(data_mm2)
+
+        logger.info(f'{len(data_mm2_pl):,} seed alignments')
         if self._save_minimap2:
             path_out = self._dir_out / 'minimap2_parsed.tsv'
             data_mm2.to_csv(path_out, sep='\t', index=False)
@@ -237,24 +275,49 @@ class AlleleQueryMinimap2:
             logger.warning('No seed alignments found. Please verify that the correct scheme has been specified.')
             return {locus: model.QueryResult(model.ALLELE_MISSING, [], tags=[model.Tag.ABSENT]) for locus in all_loci}
 
-        # Extract loci
-        data_mm2['locus'] = data_mm2['sseqid'].str.rsplit('_', n=1).str[0]
-        nb_loci = len(data_mm2['locus'].unique())
-        logger.info(f"{nb_loci:,}/{len(all_loci):,} loci aligned ({100*nb_loci/len(all_loci):.2f}%)")
+        data_mm2_pl = data_mm2_pl.with_columns(
+            locus=pl.col("sseqid")
+            .str.split("_")  # Split into a list: ["ABC", "DEF", "GHI"]
+            .list.slice(0, pl.col("sseqid").str.count_matches("_"))  # Keep all but last
+            .list.join("_")  # Join back: "ABC_DEF"
+        )
+        nb_loci = data_mm2_pl['locus'].n_unique()
+        logger.info(f"{nb_loci:,}/{len(all_loci):,} loci aligned ({100 * nb_loci / len(all_loci):.2f}%)")
 
-        # Calculate query string and remove duplicates
-        data_mm2[['query_name', 'query_start', 'query_end']] = (
-            data_mm2.apply(lambda x: AlleleQueryMinimap2.__get_coord(x), axis=1, result_type='expand'))
-        data_mm2.drop_duplicates(['locus', 'query_name', 'query_start', 'query_end'], keep='first', inplace=True)
-        logger.info(f'{len(data_mm2):,} seed alignments (without duplicates)')
+        overhang_left = pl.col("sstart")
+        overhang_right = pl.col("slen") - pl.col("send")
+
+        # 2. Apply the conditional logic using expressions
+        data_mm2_pl = data_mm2_pl.with_columns(
+            [
+                pl.col("qseqid").alias("query_name"),
+                pl.when(pl.col("sstrand").is_in(["plus", "+"]))
+                .then(pl.col("qstart") + 1 - overhang_left)
+                .otherwise(pl.col("qstart") + 1 - overhang_right)
+                .alias("query_start"),
+                pl.when(pl.col("sstrand").is_in(["plus", "+"]))
+                .then(pl.col("qend") + overhang_right)
+                .otherwise(pl.col("qend") + overhang_left)
+                .alias("query_end"),
+            ]
+        )
+        data_mm2_pl = data_mm2_pl.unique(subset=['locus', 'query_name', 'query_start', 'query_end'], keep='first')
+        logger.info(f'{len(data_mm2_pl):,} seed alignments (without duplicates)')
 
         # Save the input sequence in memory
         self._seq_holder = SeqHolder(path_fasta)
 
         # Perform the querying
         results_by_locus: dict[str, model.QueryResult] = {}
-        for locus, data in data_mm2.groupby('locus'):
-            if (loci is not None) and (locus not in loci):
-                continue
-            results_by_locus[str(locus)] = self._process_locus(str(locus), data)
-        return {locus: results_by_locus.get(locus, model.QueryResult(model.ALLELE_MISSING, [], [model.Tag.ABSENT])) for locus in all_loci}
+        if loci is not None:
+            data_mm2_pl = data_mm2_pl.filter(pl.col("locus").is_in(loci))
+        groups = data_mm2_pl.partition_by("locus", as_dict=True)
+
+        for (locus_tuple,), df_locus in groups.items():
+            locus_name = str(locus_tuple)
+            results_by_locus[locus_name] = self._process_locus_polars(locus_name, df_locus)
+
+        return {
+            locus: results_by_locus.get(locus, model.QueryResult(model.ALLELE_MISSING, [], [model.Tag.ABSENT]))
+            for locus in all_loci
+        }
