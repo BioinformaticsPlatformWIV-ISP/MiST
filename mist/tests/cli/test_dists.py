@@ -140,6 +140,40 @@ class TestDists(unittest.TestCase):
             )
             self.assertNotEqual(result.exit_code, 0)
 
+    def test_file_input(self) -> None:
+        """
+        Tests the mist dists script using a text file containing input paths.
+        """
+        runner = CliRunner()
+        with testingutils.get_temp_dir() as dir_temp:
+            # Write input files to a temporary file
+            input_paths = [str(x) for x in TestDists.get_output_files('.tsv')]
+            path_input_list = Path(dir_temp, 'input_list.txt')
+            path_input_list.write_text('\n'.join(input_paths))
+
+            path_out_dists = Path(dir_temp, 'output_dists.tsv')
+            path_out_matrix = Path(dir_temp, 'output_matrix.tsv')
+
+            # Run the script
+            # noinspection PyTypeChecker
+            result = runner.invoke(
+                cli,
+                [
+                    'dists',
+                    '--input-list', str(path_input_list),
+                    '--out-dists', str(path_out_dists),
+                    '--out-matrix', str(path_out_matrix),
+                ],
+                catch_exceptions=False,
+            )
+            print(result.stdout)
+            print(result.stderr)
+
+            # Verify output
+            self.assertEqual(result.exit_code, 0)
+            self.assertTrue(self._is_valid_output_file(path_out_dists))
+            self.assertTrue(self._is_valid_output_file(path_out_matrix))
+
 
 if __name__ == '__main__':
     unittest.main()

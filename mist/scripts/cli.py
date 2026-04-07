@@ -212,6 +212,9 @@ def download(
 @cli.command()
 @click.argument('inputs', nargs=-1)
 @click.option(
+    '--input-list', '-i', type=click.Path(path_type=Path, exists=True), help="Text file with one input per line."
+)
+@click.option(
     "-d",
     "--out-dists",
     type=click.Path(path_type=Path),
@@ -246,6 +249,7 @@ def download(
 @_common_options
 def dists(
     inputs: tuple[Path],
+    input_list: Path | None,
     out_dists: Path,
     out_matrix: Path,
     min_perc_loci: int,
@@ -257,11 +261,19 @@ def dists(
     Builds distance and allele matrices from MiST output files.
     """
     initialize_logging(log_path=log, debug=debug)
-    if len(inputs) == 0:
+
+    # Collect the inputs
+    all_inputs = list(inputs)
+    if input_list is not None:
+        with input_list.open() as handle:
+            paths_in = [Path(line.strip()) for line in handle if line.strip()]
+        all_inputs.extend(paths_in)
+    if len(all_inputs) == 0:
         raise click.UsageError("No input files provided.")
 
+    # Calculate distances
     mist_dists = MistDists(
-        inputs=[Path(x) for x in inputs],
+        inputs=[Path(x) for x in all_inputs],
         out_matrix=out_matrix,
         out_dists=out_dists,
         min_perc_loci=min_perc_loci,
