@@ -74,18 +74,23 @@ class ProfileQuery:
         locus_names = set(d.name for d in path_profiles.parent.iterdir() if not d.name.startswith('.'))
         self._profiles_by_name = {p.name: p for p in self._parse_profiles(path_profiles, locus_names)}
 
-    def query(self, result_by_locus: dict[str, model.QueryResult | None]) -> tuple[model.Profile, int]:
+    def query(self, result_by_locus: dict[str, model.QueryResult | None]) -> tuple[list[model.Profile], int]:
         """
         Queries the profiles using the detected alleles.
         :param result_by_locus: Detected allele(s) by locus
-        :return: Best matching profile, nb. of matching loci
+        :return: Best matching profiles, nb. of matching loci
         """
-        data_profiles = pd.DataFrame({'profile': [name for name in self._profiles_by_name.keys()]})
-        data_profiles['nb_matches'] = data_profiles['profile'].apply(
-            lambda p: sum(
-                ProfileQuery._alleles_match(res, self._profiles_by_name[p].alleles[locus])
+        best_profiles = []
+        best_matches = -1
+        
+        for profile_name, profile in self._profiles_by_name.items():
+            nb_matches = sum(
+                self._alleles_match(res, profile.alleles[locus])
                 for locus, res in result_by_locus.items()
             )
-        )
-        best_match = data_profiles.sort_values(by='nb_matches', ascending=False).iloc[0]
-        return self._profiles_by_name[best_match['profile']], int(best_match['nb_matches'])
+            if nb_matches > best_matches:
+                best_matches = nb_matches
+                best_profiles = [profile]
+            elif nb_matches == best_matches:
+                best_profiles.append(profile)
+        return best_profiles, best_matches
