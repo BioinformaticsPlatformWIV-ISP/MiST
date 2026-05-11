@@ -14,6 +14,18 @@ class ProfileQuery:
     ALLELE_ABSENT = '0'
     ALLELE_WILDCARD = 'N'
 
+    def __init__(self, path_profiles: Path, loci: list[str]) -> None:
+        """
+        Initializes the profiles query class.
+        :param path_profiles: Path to profiles file
+        :param loci: List of loci
+        :return: None
+        """
+        self._loci: set[str] = set(loci)
+        self._profiles_by_name: dict[str, model.Profile] = {
+            p.name: p for p in self._parse_profiles(path_profiles, self._loci)
+        }
+
     def _parse_profiles(self, path: Path, locus_names: set[str]) -> list[model.Profile]:
         """
         Parses the profile file.
@@ -65,15 +77,6 @@ class ProfileQuery:
         # Multiple alleles detected (-> match if one of them matches)
         return any(allele == profile_allele for allele in res.allele_str.split('__'))
 
-    def __init__(self, path_profiles: Path) -> None:
-        """
-        Initializes the profiles query class.
-        :param path_profiles: Path to profiles file
-        :return: None
-        """
-        locus_names = set(d.name for d in path_profiles.parent.iterdir() if not d.name.startswith('.'))
-        self._profiles_by_name = {p.name: p for p in self._parse_profiles(path_profiles, locus_names)}
-
     def query(self, result_by_locus: dict[str, model.QueryResult | None]) -> tuple[list[model.Profile], int]:
         """
         Queries the profiles using the detected alleles.
@@ -82,12 +85,9 @@ class ProfileQuery:
         """
         best_profiles = []
         best_matches = -1
-        
+
         for profile_name, profile in self._profiles_by_name.items():
-            nb_matches = sum(
-                self._alleles_match(res, profile.alleles[locus])
-                for locus, res in result_by_locus.items()
-            )
+            nb_matches = sum(self._alleles_match(res, profile.alleles[locus]) for locus, res in result_by_locus.items())
             if nb_matches > best_matches:
                 best_matches = nb_matches
                 best_profiles = [profile]
