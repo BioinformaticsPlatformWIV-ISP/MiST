@@ -1,4 +1,5 @@
 import json
+import shutil
 import unittest
 from importlib.resources import files
 from pathlib import Path
@@ -189,6 +190,45 @@ class TestCall(unittest.TestCase):
                 catch_exceptions=False,
             )
             self.assertEqual(result.exit_code, 0)
+
+    def test_call_with_profiles(self) -> None:
+        """
+        Tests allele calling with a profiles TSV present in the database.
+        Regression test: calling without --loci previously raised TypeError (NoneType not iterable).
+        """
+        path_profiles = str(files('mist').joinpath('resources/testdata/profiles.tsv'))
+        shutil.copyfile(path_profiles, self.db_path / 'profiles.tsv')
+
+        runner = CliRunner()
+        with testingutils.get_temp_dir() as dir_temp:
+            dir_out = Path(dir_temp, 'out')
+            dir_out.mkdir(parents=True, exist_ok=True)
+            path_json = dir_out / 'alleles.json'
+
+            # noinspection PyTypeChecker
+            result = runner.invoke(
+                cli,
+                [
+                    'call',
+                    '--fasta',
+                    str(files('mist').joinpath('resources/testdata/query-perfect_hits.fasta')),
+                    '--db',
+                    str(self.db_path),
+                    '--out-json',
+                    str(path_json),
+                    '--threads',
+                    '4',
+                ],
+                catch_exceptions=False,
+            )
+
+            self.assertEqual(0, result.exit_code)
+            with open(path_json) as handle:
+                data = json.load(handle)
+            self.assertIsNotNone(data['profiles'])
+            self.assertEqual(len(data['profiles']), 1)
+            self.assertEqual(data['profiles'][0]['name'], 'ST1')
+            self.assertEqual(data['profiles'][0]['nb_matches'], 2)
 
     def test_call_sample_id(self) -> None:
         """
