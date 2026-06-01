@@ -150,7 +150,8 @@ class MistCaller:
 
         # Query the profiles
         if (self._dir_db / 'profiles.tsv').exists():
-            profile_query = ProfileQuery(self._dir_db / 'profiles.tsv', loci=self._loci)
+            loci = self._loci if self._loci is not None else list(result_by_locus.keys())
+            profile_query = ProfileQuery(self._dir_db / 'profiles.tsv', loci=loci)
             profiles, nb_matches = profile_query.query(result_by_locus)
             pct_match = 100 * nb_matches / len(result_by_locus)
             logger.info(f"Matching ST(s): {', '.join([p.name for p in profiles])} ({pct_match:.2f}% match)")
