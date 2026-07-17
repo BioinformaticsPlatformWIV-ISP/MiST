@@ -35,7 +35,7 @@ class TestList(unittest.TestCase):
         # noinspection PyTypeChecker
         result = runner.invoke(cli, ['list', '--downloader', 'cgmlstorg'], catch_exceptions=False)
         schemes = TestList._parse_stdout(result.output)
-        self.assertGreater(len(schemes), 20, "Fewer schemes listed than expected")
+        self.assertGreater(len(schemes), 20, f"Fewer schemes listed than expected ({len(schemes):,} found)")
         self.assertTrue(result.exit_code == 0)
 
     def test_list_enterobase(self) -> None:
@@ -69,9 +69,9 @@ class TestList(unittest.TestCase):
         """
         runner = CliRunner()
         # noinspection PyTypeChecker
-        result = runner.invoke(cli, ['list', '--downloader', 'bigsdb', '--host', 'pubmlst'], catch_exceptions=False)
+        result = runner.invoke(cli, ['list', '--downloader', 'bigsdb', '--host', 'pasteur'], catch_exceptions=False)
         schemes = TestList._parse_stdout(result.output)
-        self.assertGreater(len(schemes), 10, "Fewer schemes listed than expected")
+        self.assertGreater(len(schemes), 4, f"Fewer schemes listed than expected ({len(schemes):,} listed)")
         self.assertTrue(result.exit_code == 0)
 
     def test_list_bigsdb_pubmlst_schemes(self) -> None:

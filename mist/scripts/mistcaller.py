@@ -150,12 +150,15 @@ class MistCaller:
 
         # Query the profiles
         if (self._dir_db / 'profiles.tsv').exists():
-            profile_query = ProfileQuery(self._dir_db / 'profiles.tsv')
-            profile, nb_matches = profile_query.query(result_by_locus)
+            loci = self._loci if self._loci is not None else list(result_by_locus.keys())
+            profile_query = ProfileQuery(self._dir_db / 'profiles.tsv', loci=loci)
+            profiles, nb_matches = profile_query.query(result_by_locus)
             pct_match = 100 * nb_matches / len(result_by_locus)
-            logger.info(f'Matching ST: {profile.name} ({pct_match:.2f}% match)')
+            logger.info(f"Matching ST(s): {', '.join([p.name for p in profiles])} ({pct_match:.2f}% match)")
+            if len(profiles) > 1:
+                logger.warning("Multiple equivalent matching STs detected")
         else:
-            profile = None
+            profiles = []
             pct_match = None
             nb_matches = None
 
@@ -164,7 +167,7 @@ class MistCaller:
             result_by_locus,
             path_in=path_fasta,
             path_out=out_json,
-            profile=profile,
+            profiles=profiles,
             nb_matches=nb_matches,
             pct_match=pct_match,
             sample_id=sample_id,
@@ -185,7 +188,7 @@ class MistCaller:
         results_by_locus: dict[str, model.QueryResult],
         path_in: Path,
         path_out: Path,
-        profile: model.Profile,
+        profiles: list[model.Profile],
         nb_matches: int | None,
         pct_match: float | None,
         sample_id: str | None,
@@ -195,7 +198,7 @@ class MistCaller:
         :param results_by_locus: Result(s) by locus
         :param path_in: Input FASTA path
         :param path_out: Output path
-        :param profile: Detected profile
+        :param profiles: Detected profile(s)
         :param nb_matches: Number of matching loci
         :param pct_match: Percent match for the profile
         :param sample_id: Sample id
@@ -213,9 +216,11 @@ class MistCaller:
             json.dump(
                 {
                     'alleles': {locus: dataclasses.asdict(res) for locus, res in results_by_locus.items()},
-                    'profile': {**dataclasses.asdict(profile), 'pct_match': pct_match, 'nb_matches': nb_matches}
-                    if profile is not None
-                    else None,
+                    'profiles': [{
+                        **dataclasses.asdict(p),
+                        'pct_match': pct_match,
+                        'nb_matches': nb_matches
+                    } for p in profiles] if len(profiles) > 0 else None,
                     'metadata': {
                         'timestamp': datetime.now().isoformat(),
                         'tool_version': __version__,
