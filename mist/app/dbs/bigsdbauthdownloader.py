@@ -17,6 +17,7 @@ class BIGSDbAuthDownloader(BaseDownloader):
     """
 
     DOWNLOADER_KEY = 'bigsdb_auth'
+    DEFAULT_TIMEOUT = 60
 
     def __init__(self, **kwargs: Any) -> None:
         """
@@ -33,6 +34,7 @@ class BIGSDbAuthDownloader(BaseDownloader):
             raise RuntimeError(f"Required argument {err} missing")
         if self._dir_tokens is None:
             raise ValueError("Token directory should be set")
+        self._timeout: int = kwargs.get('timeout') or self.DEFAULT_TIMEOUT
 
     @property
     def path_script(self) -> str:
@@ -76,7 +78,7 @@ class BIGSDbAuthDownloader(BaseDownloader):
                 ]
             )
         )
-        command.run(self.dir_out, timeout=60)
+        command.run(self.dir_out, timeout=self._timeout)
         if not command.exit_code == 0:
             raise RuntimeError(f'Error retrieving: {url}\n{command.stderr}')
         return path_out

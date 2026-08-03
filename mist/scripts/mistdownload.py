@@ -17,6 +17,7 @@ class MistDownload:
         dir_tokens: Path,
         key_name: str,
         site: str,
+        timeout: int,
     ) -> None:
         """
         Initialize the scheme download class.
@@ -27,6 +28,7 @@ class MistDownload:
         :param dir_tokens: Token directory
         :param key_name: Key name
         :param site: Site name
+        :param timeout: Timeout (in seconds) for each download request
         :return: None
         """
         self._url = url
@@ -36,6 +38,7 @@ class MistDownload:
         self._dir_tokens = dir_tokens
         self._key_name = key_name
         self._site = site
+        self._timeout = timeout
 
     def run(self) -> None:
         """
@@ -47,5 +50,6 @@ class MistDownload:
             dir_tokens=self._dir_tokens,
             key_name=self._key_name,
             site=self._site,
+            timeout=self._timeout,
         )
         downloader.download_scheme(self._url, self._output, self._include_profiles)
