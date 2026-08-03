@@ -17,7 +17,7 @@ class BIGSDbAuthDownloader(BaseDownloader):
     """
 
     DOWNLOADER_KEY = 'bigsdb_auth'
-    DEFAULT_TIMEOUT = 60
+    DEFAULT_TIMEOUT = 300
 
     def __init__(self, **kwargs: Any) -> None:
         """

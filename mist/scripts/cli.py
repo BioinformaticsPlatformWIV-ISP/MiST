@@ -184,7 +184,7 @@ def call(
 @click.option(
     "--timeout",
     type=int,
-    default=60,
+    default=300,
     show_default=True,
     help="Timeout (in seconds) for each download request",
 )
