@@ -181,6 +181,13 @@ def call(
 )
 @click.option("--key-name", default="PubMLST", show_default=True, help="Key name")
 @click.option("--site", default="PubMLST", show_default=True, help="Site")
+@click.option(
+    "--timeout",
+    type=int,
+    default=300,
+    show_default=True,
+    help="Timeout (in seconds) for each download request",
+)
 @_common_options
 def download(
     url: str,
@@ -190,6 +197,7 @@ def download(
     dir_tokens: Path,
     key_name: str,
     site: str,
+    timeout: int,
     debug: bool,
     log: Path,
 ) -> None:
@@ -205,6 +213,7 @@ def download(
         dir_tokens=dir_tokens,
         key_name=key_name,
         site=site,
+        timeout=timeout,
     )
     downloader.run()
 
