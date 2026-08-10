@@ -1,5 +1,6 @@
+import concurrent.futures
+import os
 import pickle
-from collections import Counter
 from pathlib import Path
 
 import numpy as np
@@ -28,6 +29,7 @@ class ProfileIndex:
     """
 
     CHUNK_SIZE = 25_000
+    THREADS = os.cpu_count() or 1
 
     def __init__(
         self,
@@ -145,6 +147,12 @@ class ProfileIndex:
         of scanning every profile. `profile_ids.npy` is stored column-major (Fortran order) so that slice is a
         contiguous disk read rather than one page per row. Reads `allele_codes.npy` back in chunks of `CHUNK_SIZE`
         rows to do the scattering, rather than holding it fully in memory again.
+
+        Loci are scattered across a `THREADS`-sized thread pool, one batch of loci per thread rather than one
+        task per locus (submitting a fine-grained task per locus would drown the actual work in thread-pool
+        overhead). This is safe because each locus owns its own output column and cursor, and it's worth doing
+        because `_scatter_locus` below is vectorized numpy, which releases the GIL - so threads here give real
+        parallelism instead of fighting over it.
         :param dir_out: Output directory containing `allele_codes.npy` (input) and to write `profile_ids.npy` into
         :param loci: Locus names, aligned to the columns of `allele_codes.npy` and `counts_by_locus_code`
         :param counts_by_locus_code: Tally of how many times each allele code occurs at each locus (see
@@ -170,17 +178,73 @@ class ProfileIndex:
         profile_ids = np.lib.format.open_memmap(
             dir_out / NAME_PROFILE_IDS, mode='w+', dtype=np.int32, shape=(nb_rows, len(loci)), fortran_order=True
         )
-        for row_start in range(0, nb_rows, ProfileIndex.CHUNK_SIZE):
-            row_end = min(row_start + ProfileIndex.CHUNK_SIZE, nb_rows)
-            block = allele_codes[row_start:row_end, :]
-            for j, cursor in enumerate(cursors):
-                for i, code in enumerate(block[:, j].tolist()):
-                    pos = cursor[code]
-                    profile_ids[pos, j] = row_start + i
-                    cursor[code] = pos + 1
-            logger.debug(f'Bucketed {row_end:,} / {nb_rows:,} profiles')
+        locus_batches = [batch.tolist() for batch in np.array_split(np.arange(len(loci)), ProfileIndex.THREADS)]
+        with concurrent.futures.ThreadPoolExecutor(max_workers=ProfileIndex.THREADS) as executor:
+            for row_start in range(0, nb_rows, ProfileIndex.CHUNK_SIZE):
+                row_end = min(row_start + ProfileIndex.CHUNK_SIZE, nb_rows)
+                block = allele_codes[row_start:row_end, :]
+                futures = [
+                    executor.submit(ProfileIndex._scatter_locus_batch, batch, block, cursors, profile_ids, row_start)
+                    for batch in locus_batches
+                    if len(batch) > 0
+                ]
+                for future in concurrent.futures.as_completed(futures):
+                    future.result()
+                logger.debug(f'Bucketed {row_end:,} / {nb_rows:,} profiles')
         profile_ids.flush()
         return buckets
+
+    @staticmethod
+    def _scatter_locus_batch(
+        locus_indices: list[int],
+        block: np.ndarray,
+        cursors: list[dict[int, int]],
+        profile_ids: np.memmap,
+        row_start: int,
+    ) -> None:
+        """
+        Scatters a batch of locus columns of one row-chunk into their bucket positions in `profile_ids`. Meant
+        to be handed a batch of loci per thread (see `_scatter_profile_ids`), not called once per locus.
+        :param locus_indices: Column indices (loci) to scatter, within this chunk/`profile_ids`
+        :param block: This chunk's rows of `allele_codes` (rows x loci)
+        :param cursors: Per-locus next-free-slot-per-code, updated in place
+        :param profile_ids: Output memmap (rows x loci) to scatter row indices into
+        :param row_start: Global row index of the first row in `block`
+        :return: None
+        """
+        for j in locus_indices:
+            ProfileIndex._scatter_locus(block[:, j], cursors[j], profile_ids[:, j], row_start)
+
+    @staticmethod
+    def _scatter_locus(codes: np.ndarray, cursor: dict[int, int], column: np.ndarray, row_start: int) -> None:
+        """
+        Scatters one locus column of one row-chunk into its bucket positions. Vectorized rather than looping
+        over every row: a single sort groups rows by code, each row's position within its own group is computed
+        for the whole chunk at once, and the whole chunk is written to `column` in one indexed assignment - the
+        only per-row-group Python loop left is over the (few) distinct codes in this chunk, to advance the
+        cursor.
+        :param codes: This chunk's allele codes for one locus
+        :param cursor: Next-free-slot-per-code for this locus, updated in place
+        :param column: This locus's full column of `profile_ids`, written into at the computed positions
+        :param row_start: Global row index of the first row in `codes`
+        :return: None
+        """
+        # `kind='stable'` keeps rows within the same code group in their original (file) order.
+        order = np.argsort(codes, kind='stable')
+        global_rows_sorted = (row_start + order).astype(np.int32)
+        sorted_codes = codes[order]
+        unique_codes, group_starts, group_counts = np.unique(sorted_codes, return_index=True, return_counts=True)
+
+        # Rank of each row within its own code-group (0-indexed), computed for the whole chunk at once.
+        rank_within_group = np.arange(len(sorted_codes)) - np.repeat(group_starts, group_counts)
+        base_per_code = np.fromiter(
+            (cursor[int(code)] for code in unique_codes), dtype=np.int64, count=len(unique_codes)
+        )
+        dest_positions = np.repeat(base_per_code, group_counts) + rank_within_group
+
+        for code, count in zip(unique_codes.tolist(), group_counts.tolist()):
+            cursor[code] += count
+        column[dest_positions] = global_rows_sorted
 
     def _build_profile(self, idx: int) -> model.Profile:
         """
@@ -200,10 +264,15 @@ class ProfileIndex:
     def query(self, result_by_locus: dict[str, model.QueryResult | None]) -> tuple[list[model.Profile], int]:
         """
         Queries the index using the detected alleles.
+
+        Common alleles (especially the wildcard, which every locus checks unconditionally) can match tens of
+        thousands of profiles in a real scheme, so per-profile counting is done with `np.bincount` over all
+        matched indices at once, rather than incrementing a `Counter` per profile - the latter turned a fast
+        bucket lookup into a slow, unvectorized Python loop over every match.
         :param result_by_locus: Detected allele(s) by locus
         :return: Best matching profiles, nb. of matching loci
         """
-        counts: Counter[int] = Counter()
+        matched_indices: list[np.ndarray] = []
         for locus, res in result_by_locus.items():
             bucket = self._buckets[locus]
             col = self._locus_to_col[locus]
@@ -212,12 +281,13 @@ class ProfileIndex:
                 if code not in bucket:
                     continue
                 start, count = bucket[code]
-                counts.update(self._profile_ids[start : start + count, col].tolist())
+                matched_indices.append(self._profile_ids[start : start + count, col])
 
-        if not counts:
+        if not matched_indices:
             # No profile matched anything (incl. wildcards) at any queried locus - nothing useful to report.
             return [], -1 if len(self._names) == 0 else 0
 
-        best_matches = max(counts.values())
-        best_indices = sorted(idx for idx, nb in counts.items() if nb == best_matches)
-        return [self._build_profile(idx) for idx in best_indices], best_matches
+        counts = np.bincount(np.concatenate(matched_indices), minlength=len(self._names))
+        best_matches = int(counts.max())
+        best_indices = np.flatnonzero(counts == best_matches)
+        return [self._build_profile(int(idx)) for idx in best_indices], best_matches
