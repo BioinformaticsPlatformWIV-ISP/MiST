@@ -11,9 +11,6 @@ class ProfileQuery:
     Class to query profiles files with a given allele combination.
     """
 
-    ALLELE_ABSENT = '0'
-    ALLELE_WILDCARD = 'N'
-
     def __init__(self, path_profiles: Path, loci: list[str]) -> None:
         """
         Initializes the profiles query class.
@@ -61,9 +58,9 @@ class ProfileQuery:
         :param profile_allele: Profile allele
         :return: True if the alleles match, False otherwise
         """
-        if profile_allele == ProfileQuery.ALLELE_WILDCARD:
+        if profile_allele == model.ALLELE_WILDCARD:
             return True
-        if profile_allele == ProfileQuery.ALLELE_ABSENT:
+        if profile_allele == model.ALLELE_ABSENT:
             return res is None
 
         # No allele detected
