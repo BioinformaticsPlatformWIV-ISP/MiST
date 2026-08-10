@@ -37,6 +37,8 @@ class ProfileIndex:
         loci: list[str] | None = None,
         dir_out: Path | None = None,
         dir_index: Path | None = None,
+        chunk_size: int = CHUNK_SIZE,
+        threads: int = THREADS,
     ) -> None:
         """
         Initializes the profile index, either by parsing a profiles file and building the index from scratch
@@ -45,6 +47,8 @@ class ProfileIndex:
         :param loci: List of loci (builds the index from scratch, together with `path_profiles`/`dir_out`)
         :param dir_out: Directory to build the index into (builds the index from scratch)
         :param dir_index: Directory containing a previously built index, reloaded instead of rebuilt
+        :param chunk_size: Nb. of profile rows to read/scatter at once while building (ignored when reloading)
+        :param threads: Nb. of threads to use while building the index (ignored when reloading)
         :return: None
         """
         if dir_index is not None:
@@ -59,6 +63,8 @@ class ProfileIndex:
         else:
             dir_data = dir_out
             dir_data.mkdir(parents=True, exist_ok=True)
+            self._chunk_size = chunk_size
+            self._threads = threads
             self._loci, self._names, self._metadata, counts_by_locus_code = self._parse_profiles(
                 path_profiles, set(loci), dir_data
             )
@@ -82,7 +88,7 @@ class ProfileIndex:
         self, path: Path, locus_names: set[str], dir_out: Path
     ) -> tuple[list[str], list[str], list[list[tuple[str, str]]], list[dict[int, int]]]:
         """
-        Parses the profile file in chunks of `CHUNK_SIZE` rows, writing the encoded allele codes directly into an
+        Parses the profile file in chunks of `chunk_size` rows, writing the encoded allele codes directly into an
         `allele_codes.npy` memmap in `dir_out` as they are read. Real cgMLST profiles files can be too large to hold as
         a string DataFrame (or even as plain Python ints) all at once.
         :param path: Path to the TSV file
@@ -112,7 +118,7 @@ class ProfileIndex:
         metadata: list[list[tuple[str, str]]] = []
 
         nb_read = 0
-        for chunk in pd.read_table(path, dtype=str, chunksize=self.CHUNK_SIZE):
+        for chunk in pd.read_table(path, dtype=str, chunksize=self._chunk_size):
             chunk = chunk.fillna('n/a')
 
             names.extend(chunk[chunk.columns[0]].tolist())
@@ -124,7 +130,7 @@ class ProfileIndex:
             )
 
             # Write this chunk into the memmap, and tally its codes per (locus, code) - vectorized via np.unique
-            # rather than a per-cell loop, since this runs once per chunk over up to CHUNK_SIZE rows.
+            # rather than a per-cell loop, since this runs once per chunk over up to chunk_size rows.
             allele_codes[nb_read : nb_read + chunk.shape[0], :] = codes_chunk
             for j, locus_counts in enumerate(counts_by_locus_code):
                 codes, counts = np.unique(codes_chunk[:, j], return_counts=True)
@@ -137,18 +143,17 @@ class ProfileIndex:
         allele_codes.flush()
         return cols_alleles, names, metadata, counts_by_locus_code
 
-    @staticmethod
     def _scatter_profile_ids(
-        dir_out: Path, loci: list[str], counts_by_locus_code: list[dict[int, int]]
+        self, dir_out: Path, loci: list[str], counts_by_locus_code: list[dict[int, int]]
     ) -> dict[str, dict[int, tuple[int, int]]]:
         """
         Groups profile indices by (locus, allele code) into a `profile_ids.npy` memmap in `dir_out`, so a query
         only needs to read the (start, count) slice of one locus's column that matches a detected allele, instead
         of scanning every profile. `profile_ids.npy` is stored column-major (Fortran order) so that slice is a
-        contiguous disk read rather than one page per row. Reads `allele_codes.npy` back in chunks of `CHUNK_SIZE`
+        contiguous disk read rather than one page per row. Reads `allele_codes.npy` back in chunks of `chunk_size`
         rows to do the scattering, rather than holding it fully in memory again.
 
-        Loci are scattered across a `THREADS`-sized thread pool, one batch of loci per thread rather than one
+        Loci are scattered across a `threads`-sized thread pool, one batch of loci per thread rather than one
         task per locus (submitting a fine-grained task per locus would drown the actual work in thread-pool
         overhead). This is safe because each locus owns its own output column and cursor, and it's worth doing
         because `_scatter_locus` below is vectorized numpy, which releases the GIL - so threads here give real
@@ -178,10 +183,10 @@ class ProfileIndex:
         profile_ids = np.lib.format.open_memmap(
             dir_out / NAME_PROFILE_IDS, mode='w+', dtype=np.int32, shape=(nb_rows, len(loci)), fortran_order=True
         )
-        locus_batches = [batch.tolist() for batch in np.array_split(np.arange(len(loci)), ProfileIndex.THREADS)]
-        with concurrent.futures.ThreadPoolExecutor(max_workers=ProfileIndex.THREADS) as executor:
-            for row_start in range(0, nb_rows, ProfileIndex.CHUNK_SIZE):
-                row_end = min(row_start + ProfileIndex.CHUNK_SIZE, nb_rows)
+        locus_batches = [batch.tolist() for batch in np.array_split(np.arange(len(loci)), self._threads)]
+        with concurrent.futures.ThreadPoolExecutor(max_workers=self._threads) as executor:
+            for row_start in range(0, nb_rows, self._chunk_size):
+                row_end = min(row_start + self._chunk_size, nb_rows)
                 block = allele_codes[row_start:row_end, :]
                 futures = [
                     executor.submit(ProfileIndex._scatter_locus_batch, batch, block, cursors, profile_ids, row_start)
