@@ -1,3 +1,4 @@
+import pickle
 from collections import Counter
 from pathlib import Path
 
@@ -6,28 +7,53 @@ import pandas as pd
 from mist.app import model
 from mist.app.loggers.logger import logger
 
+NAME_INDEX = 'profile_index.pkl'
+
 
 class ProfileIndex:
     """
     Class to query profiles files with a given allele combination, using an inverted index for speed.
 
     Groups profile indices by (locus, allele) at construction time, so a query only has to look up the profiles that
-    share a detected allele at each locus, instead of comparing every profile against every queried locus.
+    share a detected allele at each locus, instead of comparing every profile against every queried locus. Since
+    building the index means reading through the whole profiles file, it can be persisted with `save` and reloaded
+    with `dir_index` instead of rebuilt on every query.
     """
 
     ALLELE_ABSENT = '0'
     ALLELE_WILDCARD = 'N'
 
-    def __init__(self, path_profiles: Path, loci: list[str]) -> None:
+    def __init__(
+        self, path_profiles: Path | None = None, loci: list[str] | None = None, dir_index: Path | None = None
+    ) -> None:
         """
-        Initializes the profile index.
-        :param path_profiles: Path to profiles file
-        :param loci: List of loci
+        Initializes the profile index, either by parsing a profiles file and building the index from scratch,
+        or by reloading a previously saved one.
+        :param path_profiles: Path to profiles file (builds the index from scratch, together with `loci`)
+        :param loci: List of loci (builds the index from scratch, together with `path_profiles`)
+        :param dir_index: Directory containing a previously saved index (see `save`), reloaded instead of rebuilt
         :return: None
         """
-        self._loci: set[str] = set(loci)
-        self._profiles: list[model.Profile] = self._parse_profiles(path_profiles, self._loci)
-        self._buckets: dict[str, dict[str, list[int]]] = self._build_buckets(self._profiles, self._loci)
+        if dir_index is not None:
+            with open(dir_index / NAME_INDEX, 'rb') as handle:
+                state = pickle.load(handle)
+            self._profiles: list[model.Profile] = state['profiles']
+            self._buckets: dict[str, dict[str, list[int]]] = state['buckets']
+            logger.debug(f'Loaded index: {len(self._profiles):,} profiles ({dir_index})')
+        else:
+            self._profiles = self._parse_profiles(path_profiles, set(loci))
+            self._buckets = self._build_buckets(self._profiles, set(loci))
+
+    def save(self, dir_out: Path) -> None:
+        """
+        Persists the index to disk, so it can be reloaded with `dir_index` instead of rebuilt on every query.
+        :param dir_out: Output directory
+        :return: None
+        """
+        dir_out.mkdir(parents=True, exist_ok=True)
+        with open(dir_out / NAME_INDEX, 'wb') as handle:
+            pickle.dump({'profiles': self._profiles, 'buckets': self._buckets}, handle)
+        logger.info(f'Profiles index saved: {dir_out / NAME_INDEX}')
 
     def _parse_profiles(self, path: Path, locus_names: set[str]) -> list[model.Profile]:
         """
