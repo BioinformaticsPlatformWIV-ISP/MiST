@@ -12,6 +12,7 @@ from mist.app import NAME_DB_INFO, model
 from mist.app.loggers.logger import logger
 from mist.app.model import CustomEncoder
 from mist.app.query.allelequeryminimap import AlleleQueryMinimap2, MultiStrategy
+from mist.app.query.profileindex import ProfileIndex
 from mist.app.query.profilequery import ProfileQuery
 from mist.app.utils.dependencies import check_dependencies
 from mist.version import __version__
@@ -123,6 +124,29 @@ class MistCaller:
                     'fasta',
                 )
 
+    def _query_profiles(
+        self, result_by_locus: dict[str, model.QueryResult]
+    ) -> tuple[list[model.Profile], int | None]:
+        """
+        Queries the ST profiles matching the detected alleles. Prefers a prebuilt `ProfileIndex` (see `mist index
+        --build-profile-index`) over scanning `profiles.tsv` directly when one is present - only worth building
+        for very large schemes, so most databases fall back to the plain TSV scan.
+        :param result_by_locus: Detected allele(s) by locus
+        :return: Matching profile(s), and nb. of matching loci (None if this database has no profiles at all)
+        """
+        dir_profile_index = self._dir_db / 'profile_index'
+        if dir_profile_index.exists():
+            profiles, nb_matches = ProfileIndex(dir_index=dir_profile_index).query(result_by_locus)
+        elif (self._dir_db / 'profiles.tsv').exists():
+            loci = self._loci if self._loci is not None else list(result_by_locus.keys())
+            profiles, nb_matches = ProfileQuery(self._dir_db / 'profiles.tsv', loci=loci).query(result_by_locus)
+        else:
+            return [], None
+
+        if len(profiles) > 1:
+            logger.warning("Multiple equivalent matching STs detected")
+        return profiles, nb_matches
+
     def call_alleles(
         self, path_fasta: Path, out_json: Path, out_dir: Path, out_tsv: Path, sample_id: str | None, threads: int
     ) -> None:
@@ -149,18 +173,12 @@ class MistCaller:
         data_results = self._results_to_df(result_by_locus)
 
         # Query the profiles
-        if (self._dir_db / 'profiles.tsv').exists():
-            loci = self._loci if self._loci is not None else list(result_by_locus.keys())
-            profile_query = ProfileQuery(self._dir_db / 'profiles.tsv', loci=loci)
-            profiles, nb_matches = profile_query.query(result_by_locus)
+        profiles, nb_matches = self._query_profiles(result_by_locus)
+        if nb_matches is not None:
             pct_match = 100 * nb_matches / len(result_by_locus)
             logger.info(f"Matching ST(s): {', '.join([p.name for p in profiles])} ({pct_match:.2f}% match)")
-            if len(profiles) > 1:
-                logger.warning("Multiple equivalent matching STs detected")
         else:
-            profiles = []
             pct_match = None
-            nb_matches = None
 
         # Create output files
         self._export_json(
