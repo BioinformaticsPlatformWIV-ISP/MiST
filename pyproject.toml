@@ -28,6 +28,7 @@ dependencies = [
   "bs4",
   "click",
   "furl",
+  "numpy",
   "pandas",
   "pytest",
   "pytest-xdist",
