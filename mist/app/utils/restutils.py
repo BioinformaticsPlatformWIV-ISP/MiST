@@ -9,18 +9,21 @@ from mist.app.utils import sequenceutils
 REQUEST_SLEEP_SECONDS = 1
 
 
-def retrieve_page_data(url: str, retries: int = 3, timeout: int = 20) -> requests.Response:
+def retrieve_page_data(
+    url: str, retries: int = 3, timeout: int = 20, auth: tuple[str, str] | None = None
+) -> requests.Response:
     """
     Retrieves data from the given URL.
     :param url: URL
     :param retries: Number of retries
     :param timeout: Timeout (in seconds)
+    :param auth: Optional (username, password) HTTP Basic auth credentials
     :return: URL data
     """
     error = None
     for retry in range(retries):
         try:
-            response = requests.get(url, timeout=timeout)
+            response = requests.get(url, timeout=timeout, auth=auth)
             response.raise_for_status()
             return response
         except requests.exceptions.RequestException as err:
