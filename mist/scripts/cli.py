@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import json
 from datetime import datetime
 from importlib.resources import files
 from pathlib import Path
@@ -14,6 +15,7 @@ from mist.scripts.mistcaller import MistCaller
 from mist.scripts.mistdists import MistDists
 from mist.scripts.mistdownload import MistDownload
 from mist.scripts.mistindex import MistIndex
+from mist.scripts.mistlincode import LinCodeExtractor
 from mist.scripts.mistlist import MistList
 from mist.version import __version__
 
@@ -187,6 +189,55 @@ def call(
     logger.info(f'Please cite: {path_citation.read_text()}')
     logger.info(f"Processing time: {(datetime.now() - t0).total_seconds():.2f} seconds")
 
+
+@cli.command(name='lincode')
+@click.argument('mist_json', type=click.Path(exists=True, path_type=Path))
+@click.option("-d", "--db", type=click.Path(exists=True, path_type=Path), required=True, help="Database path")
+@click.option("-o", "--output", type=click.Path(path_type=Path), required=True, help="LIN-code output JSON file")
+@click.option(
+    "--entero-token",
+    type=click.Path(exists=True, path_type=Path),
+    help="Path to a file containing the EnteroBase API token (only required for EnteroBase databases)",
+)
+@click.option(
+    "--entero-species",
+    help="EnteroBase API species name, by default it is estimated from the URL"
+)
+@click.option(
+    "--entero-scheme",
+    help="EnteroBase API scheme name, by default it is estimated from the URL"
+)
+@_common_options
+def lincode(
+    mist_json: Path,
+    db: Path,
+    output: Path,
+    entero_token: Path | None,
+    entero_species: str | None,
+    entero_scheme: str | None,
+    debug: bool,
+    log: Path,
+) -> None:
+    """
+    Extracts the LIN code for the best-matching profile in a `mist call` JSON output.
+    """
+    initialize_logging(log_path=log, debug=debug)
+    with mist_json.open() as handle:
+        data_mist = json.load(handle)
+
+    token = entero_token.read_text().strip() if entero_token is not None else None
+    result = LinCodeExtractor(
+        dir_db=db, entero_token=token, entero_species=entero_species, entero_scheme=entero_scheme
+    ).extract(data_mist)
+    with open(output, 'w') as handle:
+        json.dump(result, handle, indent=2)
+
+    # Log  the result
+    if result['lincode_partial'] is not None:
+        rendered = '-'.join(v if v is not None else '*' for v in result['lincode_partial'])
+        logger.info(f"Extracted LIN code for ST {result['st']}: {rendered}")
+    else:
+        logger.info(f"No LIN code for ST {result['st']}")
 
 @cli.command()
 @click.option("--url", required=True, help="URL to download from.")
