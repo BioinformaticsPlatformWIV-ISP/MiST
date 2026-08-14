@@ -22,8 +22,6 @@ class ProfileIndex:
     Groups profile indices by (locus, allele) at construction time, so a query only has to look up the profiles that
     share a detected allele at each locus, instead of comparing every profile against every queried locus.
 
-    Alleles are stored internally as compact int codes rather than strings.
-
     Both the allele codes and the index itself are backed by on-disk numpy memmaps rather than held fully in RAM
     (which would be infeasible for huge schemes).
     """
@@ -43,11 +41,11 @@ class ProfileIndex:
         """
         Initializes the profile index, either by parsing a profiles file and building the index from scratch
         (written directly to `dir_out`), or by reloading a previously built one from `dir_index`.
-        :param path_profiles: Path to profiles file (builds the index from scratch, together with `loci`/`dir_out`)
-        :param loci: List of loci (builds the index from scratch, together with `path_profiles`/`dir_out`)
-        :param dir_out: Directory to build the index into (builds the index from scratch)
-        :param dir_index: Directory containing a previously built index, reloaded instead of rebuilt
-        :param chunk_size: Nb. of profile rows to read/scatter at once while building (ignored when reloading)
+        :param path_profiles: Path to profiles file
+        :param loci: List of loci
+        :param dir_out: Directory to store the index
+        :param dir_index: Directory containing a previously built index (reload)
+        :param chunk_size: Nb. of profile rows to read/scatter while building (ignored when reloading)
         :param threads: Nb. of threads to use while building the index (ignored when reloading)
         :return: None
         """
@@ -68,7 +66,7 @@ class ProfileIndex:
             self._loci, self._names, self._metadata, counts_by_locus_code = self._parse_profiles(
                 path_profiles, set(loci), dir_data
             )
-            self._buckets = self._scatter_profile_ids(dir_data, self._loci, counts_by_locus_code)
+            self._buckets = self._scatter_profile_ids(dir_data, self._loci, counts_by_locus_code, len(self._names))
             with open(dir_data / NAME_META, 'wb') as handle:
                 pickle.dump(
                     {
@@ -89,11 +87,10 @@ class ProfileIndex:
     ) -> tuple[list[str], list[str], list[list[tuple[str, str]]], list[dict[int, int]]]:
         """
         Parses the profile file in chunks of `chunk_size` rows, writing the encoded allele codes directly into an
-        `allele_codes.npy` memmap in `dir_out` as they are read. Real cgMLST profiles files can be too large to hold as
-        a string DataFrame (or even as plain Python ints) all at once.
+        `allele_codes.npy` memmap in `dir_out` as they are read.
         :param path: Path to the TSV file
         :param locus_names: Locus names
-        :param dir_out: Output directory to write `allele_codes.npy` into
+        :param dir_out: Output directory to store memmap
         :return: Locus names (in file column order), profile names, metadata, and a tally of how many times each
             allele code occurs at each locus (one dict per locus) - used to size the buckets afterward
         """
@@ -144,26 +141,15 @@ class ProfileIndex:
         return cols_alleles, names, metadata, counts_by_locus_code
 
     def _scatter_profile_ids(
-        self, dir_out: Path, loci: list[str], counts_by_locus_code: list[dict[int, int]]
+        self, dir_out: Path, loci: list[str], counts_by_locus_code: list[dict[int, int]], nb_profiles: int
     ) -> dict[str, dict[int, tuple[int, int]]]:
         """
-        Groups profile indices by (locus, allele code) into a `profile_ids.npy` memmap in `dir_out`, so a query
-        only needs to read the (start, count) slice of one locus's column that matches a detected allele, instead
-        of scanning every profile. `profile_ids.npy` is stored column-major (Fortran order) so that slice is a
-        contiguous disk read rather than one page per row. Reads `allele_codes.npy` back in chunks of `chunk_size`
-        rows to do the scattering, rather than holding it fully in memory again.
-
-        Loci are scattered across a `threads`-sized thread pool, one batch of loci per thread rather than one
-        task per locus (submitting a fine-grained task per locus would drown the actual work in thread-pool
-        overhead). This is safe because each locus owns its own output column and cursor, and it's worth doing
-        because `_scatter_locus` below is vectorized numpy, which releases the GIL - so threads here give real
-        parallelism instead of fighting over it.
-        :param dir_out: Output directory containing `allele_codes.npy` (input) and to write `profile_ids.npy` into
+        Groups profile indices by (locus, allele code) into a `profile_ids.npy` memmap in `dir_out`.
+        :param dir_out: Output directory to store memmaps
         :param loci: Locus names, aligned to the columns of `allele_codes.npy` and `counts_by_locus_code`
-        :param counts_by_locus_code: Tally of how many times each allele code occurs at each locus (see
-            `_parse_profiles`), used to size each bucket
-        :return: Mapping of locus -> allele code -> (start, count) offset into that locus's column of
-            `profile_ids.npy`
+        :param counts_by_locus_code: Tally of how many times each allele code occurs at each locus used to size buckets
+        :param nb_profiles: Nb. of profiles parsed
+        :return: Mapping of locus -> allele code -> (start, count) offset into that locus's column of `profile_ids.npy`
         """
         buckets: dict[str, dict[int, tuple[int, int]]] = {}
         cursors: list[dict[int, int]] = []
@@ -179,7 +165,7 @@ class ProfileIndex:
             cursors.append(cursor)
 
         allele_codes = np.load(dir_out / NAME_ALLELE_CODES, mmap_mode='r')
-        nb_rows = allele_codes.shape[0]
+        nb_rows = nb_profiles
         profile_ids = np.lib.format.open_memmap(
             dir_out / NAME_PROFILE_IDS, mode='w+', dtype=np.int32, shape=(nb_rows, len(loci)), fortran_order=True
         )
@@ -208,8 +194,7 @@ class ProfileIndex:
         row_start: int,
     ) -> None:
         """
-        Scatters a batch of locus columns of one row-chunk into their bucket positions in `profile_ids`. Meant
-        to be handed a batch of loci per thread (see `_scatter_profile_ids`), not called once per locus.
+        Scatters a batch of locus columns of one row-chunk into their bucket positions in `profile_ids`.
         :param locus_indices: Column indices (loci) to scatter, within this chunk/`profile_ids`
         :param block: This chunk's rows of `allele_codes` (rows x loci)
         :param cursors: Per-locus next-free-slot-per-code, updated in place
@@ -223,11 +208,8 @@ class ProfileIndex:
     @staticmethod
     def _scatter_locus(codes: np.ndarray, cursor: dict[int, int], column: np.ndarray, row_start: int) -> None:
         """
-        Scatters one locus column of one row-chunk into its bucket positions. Vectorized rather than looping
-        over every row: a single sort groups rows by code, each row's position within its own group is computed
-        for the whole chunk at once, and the whole chunk is written to `column` in one indexed assignment - the
-        only per-row-group Python loop left is over the (few) distinct codes in this chunk, to advance the
-        cursor.
+        Scatter one locus column into bucket positions for a row chunk.
+        Vectorized over rows, only a small loop over distinct codes remains to advance cursors
         :param codes: This chunk's allele codes for one locus
         :param cursor: Next-free-slot-per-code for this locus, updated in place
         :param column: This locus's full column of `profile_ids`, written into at the computed positions
@@ -269,11 +251,6 @@ class ProfileIndex:
     def query(self, result_by_locus: dict[str, model.QueryResult | None]) -> tuple[list[model.Profile], int]:
         """
         Queries the index using the detected alleles.
-
-        Common alleles (especially the wildcard, which every locus checks unconditionally) can match tens of
-        thousands of profiles in a real scheme, so per-profile counting is done with `np.bincount` over all
-        matched indices at once, rather than incrementing a `Counter` per profile - the latter turned a fast
-        bucket lookup into a slow, unvectorized Python loop over every match.
         :param result_by_locus: Detected allele(s) by locus
         :return: Best matching profiles, nb. of matching loci
         """
