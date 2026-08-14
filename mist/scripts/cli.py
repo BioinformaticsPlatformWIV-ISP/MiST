@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-import json
 from datetime import datetime
 from importlib.resources import files
 from pathlib import Path
@@ -15,7 +14,7 @@ from mist.scripts.mistcaller import MistCaller
 from mist.scripts.mistdists import MistDists
 from mist.scripts.mistdownload import MistDownload
 from mist.scripts.mistindex import MistIndex
-from mist.scripts.mistlincode import LinCodeExtractor
+from mist.scripts.mistlincode import MistLinCode
 from mist.scripts.mistlist import MistList
 from mist.version import __version__
 
@@ -222,22 +221,11 @@ def lincode(
     Extracts the LIN code for the best-matching profile in a `mist call` JSON output.
     """
     initialize_logging(log_path=log, debug=debug)
-    with mist_json.open() as handle:
-        data_mist = json.load(handle)
-
     token = entero_token.read_text().strip() if entero_token is not None else None
-    result = LinCodeExtractor(
+    MistLinCode(
         dir_db=db, entero_token=token, entero_species=entero_species, entero_scheme=entero_scheme
-    ).extract(data_mist)
-    with open(output, 'w') as handle:
-        json.dump(result, handle, indent=2)
+    ).run(mist_json, output)
 
-    # Log  the result
-    if result['lincode_partial'] is not None:
-        rendered = '-'.join(v if v is not None else '*' for v in result['lincode_partial'])
-        logger.info(f"Extracted LIN code for ST {result['st']}: {rendered}")
-    else:
-        logger.info(f"No LIN code for ST {result['st']}")
 
 @cli.command()
 @click.option("--url", required=True, help="URL to download from.")

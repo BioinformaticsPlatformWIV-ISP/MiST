@@ -5,6 +5,7 @@ class DependencyError(RuntimeError):
 
     pass
 
+
 class LinCodeError(Exception):
     """
     Raised when a LIN code cannot be extracted for the given input.
