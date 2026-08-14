@@ -107,6 +107,8 @@ class BIGSDbAuthDownloader(BaseDownloader):
         # Download the scheme metadata
         metadata = restutils.retrieve_page_data(url).json()
         logger.info(f"Metadata received: {metadata['locus_count']:,} loci")
+        if 'lincodes' in metadata:
+            self._extra_db_info['lincodes'] = metadata['lincodes']
 
         # Create a temporary directory to store the tokens (to avoid overwriting the original files)
         dir_tokens_temp = dir_out / 'tokens'

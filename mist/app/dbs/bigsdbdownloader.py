@@ -44,6 +44,8 @@ class BIGSDbDownloader(BaseDownloader):
         # Download the scheme metadata
         metadata = restutils.retrieve_page_data(url).json()
         logger.info(f"Metadata received: {metadata['locus_count']:,} loci")
+        if 'lincodes' in metadata:
+            self._extra_db_info['lincodes'] = metadata['lincodes']
 
         # Download FASTA files
         paths_fasta = self._download_fasta_files(metadata)

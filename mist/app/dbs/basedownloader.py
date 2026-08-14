@@ -24,6 +24,7 @@ class BaseDownloader(metaclass=abc.ABCMeta):
         :return: None
         """
         self.dir_out: Optional[Path] = None
+        self._extra_db_info: dict[str, Any] = {}
 
     @abc.abstractmethod
     def _download(self, url: str, dir_out: Path, include_profiles: bool = False) -> None:
@@ -78,6 +79,7 @@ class BaseDownloader(metaclass=abc.ABCMeta):
                     'url': url,
                     'downloader': self.DOWNLOADER_KEY,
                     'download_date': datetime.datetime.now().isoformat(),
+                    **self._extra_db_info,
                 },
                 handle,
                 indent=2,
