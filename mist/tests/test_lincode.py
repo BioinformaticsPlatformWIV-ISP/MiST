@@ -155,6 +155,7 @@ class TestMistLinCode(unittest.TestCase):
         self.assertEqual('4362', result['st'])
         self.assertEqual(['0', '0', '369', '0', '0', '0', '0', '35', '0', '0'], result['lincode_full'])
         self.assertEqual(['0', '0', '369', '0', '0', '0', '0', None, None, None], result['lincode_partial'])
+        self.assertEqual([629, 610, 585, 190, 43, 10, 7, 4, 2, 1], result['thresholds'])
         self.assertEqual({'Phylogroup': 'KpI'}, result['fields'])
 
     def test_run_writes_output_file(self) -> None:
@@ -192,6 +193,7 @@ class TestMistLinCode(unittest.TestCase):
         self.assertEqual('4362', result['st'])
         self.assertEqual(['0', '0', '369', '0', '0', '0', '0', '35', '0', '0'], result['lincode_full'])
         self.assertEqual(['0', '0', '369', '0', '0', '0', '0', None, None, None], result['lincode_partial'])
+        self.assertEqual([629, 610, 585, 190, 43, 10, 7, 4, 2, 1], result['thresholds'])
 
     def test_extract_bigsdb_missing_cached_thresholds_raises(self) -> None:
         """
@@ -255,6 +257,8 @@ class TestMistLinCode(unittest.TestCase):
         self.assertEqual(['0', '0', '3', '0', '0', '0', '0', '3', '3', '7', '0', '0', '0'], result['lincode_full'])
         expected_partial = ['0', '0', '3', '0', '0', '0', '0', '3', '3', '7', '0', None, None]
         self.assertEqual(expected_partial, result['lincode_partial'])
+        expected_thresholds = [2850, 2600, 2000, 900, 400, 200, 100, 50, 20, 10, 5, 2, 0]
+        self.assertEqual(expected_thresholds, result['thresholds'])
 
         # Confirm the mocked call targeted the derived species/scheme slugs, authenticated with the token
         called_args, called_kwargs = mock_retrieve.call_args
@@ -321,6 +325,8 @@ class TestMistLinCode(unittest.TestCase):
         self.assertEqual(expected_full, result['lincode_full'])
         expected_partial = ['0', '0', '0', '0', '2', '89', '0', '0', '4', None, None, None, None]
         self.assertEqual(expected_partial, result['lincode_partial'])
+        expected_thresholds = [2350, 2000, 1500, 1100, 400, 200, 100, 50, 20, 10, 5, 2, 0]
+        self.assertEqual(expected_thresholds, result['thresholds'])
 
     @patch('mist.scripts.mistlincode.restutils.retrieve_page_data')
     def test_extract_enterobase_without_matching_hiercc_falls_back_unmasked(self, mock_retrieve: Mock) -> None:
@@ -343,6 +349,7 @@ class TestMistLinCode(unittest.TestCase):
             result = MistLinCode(dir_db=dir_temp, entero_token='dummy-token').extract({'profiles': [profile]})
 
         self.assertIsNone(result['lincode_partial'])
+        self.assertEqual([2, 0], result['thresholds'])
 
     def test_extract_enterobase_without_token_raises(self) -> None:
         """

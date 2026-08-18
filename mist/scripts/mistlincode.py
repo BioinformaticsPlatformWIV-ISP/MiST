@@ -123,6 +123,7 @@ class MistLinCode:
             'nb_loci': nb_loci,
             'lincode_full': lincode_full,
             'lincode_partial': lincode_partial,
+            'thresholds': thresholds,
             'fields': fields,
         }
 
@@ -171,6 +172,7 @@ class MistLinCode:
             'nb_loci': nb_loci,
             'lincode_full': lincode_full,
             'lincode_partial': lincode_partial,
+            'thresholds': thresholds,
         }
 
 
