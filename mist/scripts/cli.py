@@ -9,10 +9,12 @@ import click
 from mist.app.dbs import DOWNLOADERS
 from mist.app.loggers.logger import initialize_logging, logger
 from mist.app.query.allelequeryminimap import MultiStrategy
+from mist.app.query.profileindex import ProfileIndex
 from mist.scripts.mistcaller import MistCaller
 from mist.scripts.mistdists import MistDists
 from mist.scripts.mistdownload import MistDownload
 from mist.scripts.mistindex import MistIndex
+from mist.scripts.mistlincode import ENTEROBASE_PRESET, MistLinCode
 from mist.scripts.mistlist import MistList
 from mist.version import __version__
 
@@ -44,6 +46,18 @@ def cli() -> None:
 @click.option("-o", "--output", type=click.Path(path_type=Path), required=True, help="Output directory")
 @click.option("-c", "--cutoff", type=int, default=95, show_default=True, help="Clustering cutoff")
 @click.option("-t", "--threads", type=int, default=1, show_default=True, help="Number of threads to use")
+@click.option(
+    "--build-profile-index",
+    is_flag=True,
+    help="Build a profile index for fast ST lookups, only recommended for very large (e.g. cgMLST) schemes.",
+)
+@click.option(
+    "--chunk-size",
+    type=int,
+    default=ProfileIndex.CHUNK_SIZE,
+    show_default=True,
+    help="Nb. of profile rows to process at once when building the profile index",
+)
 @_common_options
 def index_(
     fasta: list[Path],
@@ -52,6 +66,8 @@ def index_(
     output: Path,
     cutoff: int,
     threads: int,
+    build_profile_index: bool,
+    chunk_size: int,
     debug: bool,
     log: Path,
 ) -> None:
@@ -72,8 +88,21 @@ def index_(
         raise click.UsageError("No input FASTA file(s) provided.")
 
     # Run the indexer
+    dir_out = output.expanduser().resolve()
     indexer = MistIndex(paths_fasta=paths_fasta, path_profiles=profiles, cutoff=cutoff, debug=debug)
-    indexer.create_index(dir_out=output.expanduser().resolve(), threads=threads)
+    indexer.create_index(dir_out=dir_out, threads=threads)
+
+    # Build the profile index, so profile queries don't need to scan the whole profiles file
+    if profiles is not None and build_profile_index:
+        with open(dir_out / 'loci.txt') as handle:
+            loci = [line.strip() for line in handle if line.strip()]
+        ProfileIndex(
+            path_profiles=dir_out / 'profiles.tsv',
+            loci=loci,
+            dir_out=dir_out / 'profile_index',
+            chunk_size=chunk_size,
+            threads=threads,
+        )
 
 
 @cli.command()
@@ -158,6 +187,56 @@ def call(
     path_citation = files('mist').joinpath('resources/citation.txt')
     logger.info(f'Please cite: {path_citation.read_text()}')
     logger.info(f"Processing time: {(datetime.now() - t0).total_seconds():.2f} seconds")
+
+
+@cli.command(name='lincode')
+@click.argument('mist_json', type=click.Path(exists=True, path_type=Path))
+@click.option("-d", "--db", type=click.Path(exists=True, path_type=Path), required=True, help="Database path")
+@click.option("-o", "--output", type=click.Path(path_type=Path), required=True, help="LIN-code output JSON file")
+@click.option(
+    "--entero-token",
+    type=click.Path(exists=True, path_type=Path),
+    help="Path to a file containing the EnteroBase API token (only required for EnteroBase databases)",
+)
+@click.option(
+    "--entero-preset",
+    type=click.Choice(list(ENTEROBASE_PRESET)),
+    help="EnteroBase preset supplying the API species/scheme and hierCC field (required for EnteroBase databases "
+    "unless --entero-species and --entero-scheme are both given)",
+)
+@click.option("--entero-species", help="EnteroBase API species name, overriding the preset's")
+@click.option("--entero-scheme", help="EnteroBase API scheme name, overriding the preset's")
+@click.option(
+    "--entero-hiercc-field",
+    help="EnteroBase hierCC field to derive LIN-code thresholds from (e.g. 'hierCC' or 'hierCCv0'), overriding "
+    "the preset's",
+)
+@_common_options
+def lincode(
+    mist_json: Path,
+    db: Path,
+    output: Path,
+    entero_token: Path | None,
+    entero_preset: str | None,
+    entero_species: str | None,
+    entero_scheme: str | None,
+    entero_hiercc_field: str | None,
+    debug: bool,
+    log: Path,
+) -> None:
+    """
+    Extracts the LIN code for the best-matching profile in a `mist call` JSON output.
+    """
+    initialize_logging(log_path=log, debug=debug)
+    token = entero_token.read_text().strip() if entero_token is not None else None
+    MistLinCode(
+        dir_db=db,
+        entero_token=token,
+        entero_preset=entero_preset,
+        entero_species=entero_species,
+        entero_scheme=entero_scheme,
+        entero_hiercc_field=entero_hiercc_field,
+    ).run(mist_json, output)
 
 
 @cli.command()

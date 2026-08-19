@@ -195,8 +195,13 @@ class MistIndex:
         :param dir_out: Output directory
         :return: None
         """
-        path_metadata = self._paths_fasta[0].parent / NAME_DB_INFO
-        if not path_metadata.exists():
-            logger.debug('No db_info.json file found, not copying DB metadata')
-            return
-        shutil.copyfile(path_metadata, dir_out / path_metadata.name)
+        dirs_ = [self._paths_fasta[0].parent]
+        if self._path_profiles is not None:
+            dirs_.append(self._path_profiles.parent)
+
+        for dir_candidate in dirs_:
+            path_metadata = dir_candidate / NAME_DB_INFO
+            if path_metadata.exists():
+                shutil.copyfile(path_metadata, dir_out / path_metadata.name)
+                return
+        logger.debug('No db_info.json file found, not copying DB metadata')

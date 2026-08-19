@@ -160,9 +160,12 @@ class TestDists(unittest.TestCase):
                 cli,
                 [
                     'dists',
-                    '--input-list', str(path_input_list),
-                    '--out-dists', str(path_out_dists),
-                    '--out-matrix', str(path_out_matrix),
+                    '--input-list',
+                    str(path_input_list),
+                    '--out-dists',
+                    str(path_out_dists),
+                    '--out-matrix',
+                    str(path_out_matrix),
                 ],
                 catch_exceptions=False,
             )

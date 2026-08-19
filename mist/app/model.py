@@ -4,6 +4,8 @@ from enum import Enum
 from typing import Any
 
 ALLELE_MISSING = '-'
+ALLELE_ABSENT = '0'
+ALLELE_WILDCARD = 'N'
 
 
 class CustomEncoder(json.JSONEncoder):

@@ -6,6 +6,11 @@
 MiST is a rapid, accurate and flexible (core-genome) multi-locus sequence typing (MLST) allele caller.
 It provides tools to download, index, and query schemes, as well as to construct (cg)MLST-based phylogenies.
 
+## LIN-codes
+
+MiST can derive [LIN codes](https://www.biorxiv.org/content/10.1101/2024.03.11.584534v1.full) from cgMLST calls from schemes hosted using BIGSdb or EnteroBase.
+More information can be found on the [Wiki](https://github.com/BioinformaticsPlatformWIV-ISP/MiST/wiki/LINcodes). 
+
 # DOCUMENTATION
 
 The documentation is available on the [Wiki](https://github.com/BioinformaticsPlatformWIV-ISP/MiST/wiki).
