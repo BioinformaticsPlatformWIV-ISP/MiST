@@ -9,7 +9,6 @@ from mist.scripts.mistlincode import (
     MistLinCode,
     _determine_bin,
     _entero_hiercc_thresholds,
-    _entero_species_scheme,
     _mask_lincode,
 )
 
@@ -48,15 +47,6 @@ class TestLinCodeHelpers(unittest.TestCase):
         nb_assigned = _determine_bin(5, self.THRESHOLDS)
         masked = _mask_lincode(self.LINCODE_FULL, nb_assigned)
         self.assertEqual(['0', '0', '369', '0', '0', '0', '0', None, None, None], masked)
-
-    def test_entero_species_scheme(self) -> None:
-        """
-        Tests deriving the EnteroBase API species/scheme slugs from a scheme download URL.
-        :return: None
-        """
-        species, scheme = _entero_species_scheme('https://enterobase.warwick.ac.uk/schemes/Senterica.cgMLSTv2/')
-        self.assertEqual('senterica', species)
-        self.assertEqual('cgMLST_v2', scheme)
 
     def test_entero_hiercc_thresholds(self) -> None:
         """
@@ -235,8 +225,8 @@ class TestMistLinCode(unittest.TestCase):
     def test_extract_enterobase_with_hiercc_thresholds(self, mock_retrieve: Mock) -> None:
         """
         Tests extracting a partial LIN code for an EnteroBase-sourced profile, masked using hierCCv0-derived
-        thresholds - 'hierCCv0' is preferred over the longer 'hierCC' (see ENTERO_INFO), and its 13 thresholds
-        (including d0 as the deepest, 100%-similarity level) match the 13-position LIN code, so masking
+        thresholds - the 'salmonella' preset pins the hierCC field to 'hierCCv0' (see ENTERO_INFO), and its 13
+        thresholds (including d0 as the deepest, 100%-similarity level) match the 13-position LIN code, so masking
         applies. Real-world example (ST 102245, senterica/cgMLST_v2, 3 mismatches): the threshold for the
         second-deepest position (2) is exceeded, so the two deepest positions are masked.
         :return: None
@@ -251,7 +241,9 @@ class TestMistLinCode(unittest.TestCase):
                 downloader='enterobase',
                 url='https://enterobase.warwick.ac.uk/schemes/Senterica.cgMLSTv2/',
             )
-            result = MistLinCode(dir_db=dir_temp, entero_token='dummy-token').extract({'profiles': [profile]})
+            result = MistLinCode(
+                dir_db=dir_temp, entero_token='dummy-token', entero_preset='salmonella'
+            ).extract({'profiles': [profile]})
 
         self.assertEqual('102245', result['st'])
         self.assertEqual(['0', '0', '3', '0', '0', '0', '0', '3', '3', '7', '0', '0', '0'], result['lincode_full'])
@@ -268,8 +260,8 @@ class TestMistLinCode(unittest.TestCase):
     @patch('mist.scripts.mistlincode.restutils.retrieve_page_data')
     def test_extract_enterobase_species_scheme_override(self, mock_retrieve: Mock) -> None:
         """
-        Tests that explicit entero_species/entero_scheme override the (unreliable) auto-derived guess - e.g.
-        E. coli needs 'ecoli'/'cgMLST', not the 'escherichia'/'cgMLST_v1' guessed from its download URL.
+        Tests that explicit entero_species/entero_scheme pin the queried endpoint without a preset - the API
+        endpoint is built from the overrides alone, not guessed from the download URL.
         :return: None
         """
         mock_retrieve.return_value.json.return_value = {'STs': [{'ST_id': '146609', 'info': self.ENTERO_INFO}]}
@@ -290,13 +282,73 @@ class TestMistLinCode(unittest.TestCase):
         self.assertIn('/ecoli/cgMLST/sts', called_url)
 
     @patch('mist.scripts.mistlincode.restutils.retrieve_page_data')
+    def test_extract_enterobase_preset_override_scheme(self, mock_retrieve: Mock) -> None:
+        """
+        Tests that an individual override wins over the selected preset - the 'salmonella' preset supplies the
+        species ('senterica') and hierCC field, while --entero-scheme overrides just the scheme.
+        :return: None
+        """
+        mock_retrieve.return_value.json.return_value = {'STs': [{'ST_id': '102245', 'info': self.ENTERO_INFO}]}
+        profile = {'name': '102245', 'nb_matches': 3000, 'alleles': {f'locus{i}': '1' for i in range(3002)}}
+
+        with testingutils.get_temp_dir() as dir_temp:
+            dir_temp = Path(dir_temp)
+            self._write_db_info(
+                dir_temp,
+                downloader='enterobase',
+                url='https://enterobase.warwick.ac.uk/schemes/Senterica.cgMLSTv2/',
+            )
+            MistLinCode(
+                dir_db=dir_temp, entero_token='dummy-token', entero_preset='salmonella', entero_scheme='cgMLST_v3'
+            ).extract({'profiles': [profile]})
+
+        self.assertIn('/senterica/cgMLST_v3/sts', mock_retrieve.call_args[0][0])
+
+    def test_extract_enterobase_without_preset_or_overrides_raises(self) -> None:
+        """
+        Tests that an EnteroBase extraction with neither a preset nor explicit species/scheme overrides raises,
+        rather than querying a guessed endpoint (URL-based guessing has been removed).
+        :return: None
+        """
+        profile = {'name': '102245', 'nb_matches': 3000, 'alleles': {f'locus{i}': '1' for i in range(3002)}}
+
+        with testingutils.get_temp_dir() as dir_temp:
+            dir_temp = Path(dir_temp)
+            self._write_db_info(
+                dir_temp,
+                downloader='enterobase',
+                url='https://enterobase.warwick.ac.uk/schemes/Senterica.cgMLSTv2/',
+            )
+            with self.assertRaises(LinCodeError):
+                MistLinCode(dir_db=dir_temp, entero_token='dummy-token').extract({'profiles': [profile]})
+
+    def test_extract_enterobase_unknown_preset_raises(self) -> None:
+        """
+        Tests that selecting a preset name that isn't defined raises a clear error.
+        :return: None
+        """
+        profile = {'name': '102245', 'nb_matches': 3000, 'alleles': {f'locus{i}': '1' for i in range(3002)}}
+
+        with testingutils.get_temp_dir() as dir_temp:
+            dir_temp = Path(dir_temp)
+            self._write_db_info(
+                dir_temp,
+                downloader='enterobase',
+                url='https://enterobase.warwick.ac.uk/schemes/Senterica.cgMLSTv2/',
+            )
+            with self.assertRaises(LinCodeError):
+                MistLinCode(
+                    dir_db=dir_temp, entero_token='dummy-token', entero_preset='klebsiella'
+                ).extract({'profiles': [profile]})
+
+    @patch('mist.scripts.mistlincode.restutils.retrieve_page_data')
     def test_extract_enterobase_falls_back_to_hiercc_without_v0(self, mock_retrieve: Mock) -> None:
         """
-        Tests the real E. coli case: no 'hierCCv0' field at all (unlike Salmonella), so 'hierCC' is used
-        directly. E. coli's 'hierCC' has 13 raw keys already matching EnteroBase's documented 13-level
-        mapping (no extra level like Salmonella's 'd150'), so once d0 is kept as the deepest threshold, it
-        lines up with the 13-position LIN code and masking applies - this used to always fall back to
-        unmasked before d0 was included. Real-world example (ST 268260, ecoli/cgMLST, 11 mismatches).
+        Tests the real E. coli case: the 'ecoli' preset pins the hierCC field to 'hierCC' (E. coli has no
+        'hierCCv0' field at all, unlike Salmonella). E. coli's 'hierCC' has 13 raw keys already matching
+        EnteroBase's documented 13-level mapping (no extra level like Salmonella's 'd150'), so once d0 is kept
+        as the deepest threshold, it lines up with the 13-position LIN code and masking applies. Real-world
+        example (ST 268260, ecoli/cgMLST, 11 mismatches).
         :return: None
         """
         info = {
@@ -318,7 +370,7 @@ class TestMistLinCode(unittest.TestCase):
                 url='https://enterobase.warwick.ac.uk/schemes/Escherichia.cgMLSTv1/',
             )
             result = MistLinCode(
-                dir_db=dir_temp, entero_token='dummy-token', entero_species='ecoli', entero_scheme='cgMLST'
+                dir_db=dir_temp, entero_token='dummy-token', entero_preset='ecoli'
             ).extract({'profiles': [profile]})
 
         expected_full = ['0', '0', '0', '0', '2', '89', '0', '0', '4', '0', '2', '1', '36']
@@ -346,7 +398,9 @@ class TestMistLinCode(unittest.TestCase):
                 downloader='enterobase',
                 url='https://enterobase.warwick.ac.uk/schemes/Senterica.cgMLSTv2/',
             )
-            result = MistLinCode(dir_db=dir_temp, entero_token='dummy-token').extract({'profiles': [profile]})
+            result = MistLinCode(
+                dir_db=dir_temp, entero_token='dummy-token', entero_preset='salmonella'
+            ).extract({'profiles': [profile]})
 
         self.assertIsNone(result['lincode_partial'])
         self.assertEqual([2, 0], result['thresholds'])
