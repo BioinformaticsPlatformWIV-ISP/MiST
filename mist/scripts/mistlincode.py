@@ -3,13 +3,23 @@ import re
 from pathlib import Path
 from typing import Any
 
-from furl import furl
-
 from mist.app import NAME_DB_INFO, errors
 from mist.app.loggers.logger import logger
 from mist.app.utils import restutils
 
 URL_ENTEROBASE_API = 'https://enterobase.warwick.ac.uk/api/v2.0'
+ENTEROBASE_PRESET = {
+    'ecoli': {
+        'species': 'ecoli',
+        'scheme': 'cgMLST',
+        'hiercc_field': 'hierCC',
+    },
+    'salmonella': {
+        'species': 'senterica',
+        'scheme': 'cgMLST_v2',
+        'hiercc_field': 'hierCCv0',
+    },
+}
 
 
 class MistLinCode:
@@ -25,20 +35,26 @@ class MistLinCode:
         self,
         dir_db: Path,
         entero_token: str | None = None,
+        entero_preset: str | None = None,
         entero_species: str | None = None,
         entero_scheme: str | None = None,
+        entero_hiercc_field: str | None = None,
     ) -> None:
         """
         Initializes the extractor.
         :param dir_db: Database directory (indexed by `mist index`)
         :param entero_token: EnteroBase API token
-        :param entero_species: EnteroBase API species name
-        :param entero_scheme: EnteroBase API scheme name
+        :param entero_preset: EnteroBase preset name
+        :param entero_species: EnteroBase API species name (can override the preset)
+        :param entero_scheme: EnteroBase API scheme name (can override the preset)
+        :param entero_hiercc_field: EnteroBase hierCC field to derive thresholds (can override the preset)
         :return: None
         """
         self._entero_token = entero_token
+        self._entero_preset = entero_preset
         self._entero_species = entero_species
         self._entero_scheme = entero_scheme
+        self._entero_hiercc_field = entero_hiercc_field
         path_db_info = dir_db / NAME_DB_INFO
         if not path_db_info.exists():
             raise errors.LinCodeError(
@@ -137,25 +153,21 @@ class MistLinCode:
         if not self._entero_token:
             raise errors.LinCodeError('An EnteroBase API token is required to extract LIN codes for this database')
 
-        species_guess, scheme_guess = _entero_species_scheme(self._db_info['url'])
-        species = self._entero_species or species_guess
-        scheme = self._entero_scheme or scheme_guess
+        species, scheme, hiercc_field = self._resolve_entero_params()
         st_id = profile['name']
         url = f'{URL_ENTEROBASE_API}/{species}/{scheme}/sts?limit=1&offset=0&st_id={st_id}&scheme={scheme}'
         sts = restutils.retrieve_page_data(url, auth=(self._entero_token, '')).json().get('STs', [])
         if not sts:
             raise errors.LinCodeError(
                 f"No LIN code found for ST {st_id} at {url} - the species/scheme slug ('{species}'/'{scheme}') "
-                f"may be wrong for this database; override with --entero-species/--entero-scheme if so "
-                f"(EnteroBase's API naming doesn't reliably match its download URLs)"
+                f"may be wrong for this database; select the right --entero-preset, or override the slugs with "
+                f"--entero-species/--entero-scheme"
             )
         info = sts[0]['info']
         lincode_full = _split_lincode(info['lin_code'])
         nb_matches, nb_loci = profile['nb_matches'], len(profile['alleles'])
 
-        # Prefer 'hierCCv0' over 'hierCC'
-        hiercc_raw = info.get('hierCCv0') or info.get('hierCC', {})
-        thresholds = _entero_hiercc_thresholds(hiercc_raw)
+        thresholds = _entero_hiercc_thresholds(_select_hiercc(info, hiercc_field))
         if len(thresholds) == len(lincode_full):
             nb_assigned = _determine_bin(nb_loci - nb_matches, thresholds)
             lincode_partial = _mask_lincode(lincode_full, nb_assigned)
@@ -174,6 +186,39 @@ class MistLinCode:
             'lincode_partial': lincode_partial,
             'thresholds': thresholds,
         }
+
+    def _resolve_entero_params(self) -> tuple[str, str, str | None]:
+        """
+        Resolves the EnteroBase API species/scheme slugs and the hierCC field to derive thresholds from. Values
+        come from the selected preset (`--entero-preset`), each overridable individually from the CLI. Nothing is
+        guessed from the download URL: the species and scheme must be pinned down by a preset or by explicit
+        overrides, or extraction raises rather than querying a guessed endpoint.
+        :return: (species, scheme, hiercc_field) - hiercc_field may be None if neither a preset nor an override set it
+        """
+        preset = self._entero_preset_values()
+        species = self._entero_species or preset.get('species')
+        scheme = self._entero_scheme or preset.get('scheme')
+        hiercc_field = self._entero_hiercc_field or preset.get('hiercc_field')
+        if not species or not scheme:
+            raise errors.LinCodeError(
+                'EnteroBase LIN-code extraction needs an API species and scheme. Select a preset with '
+                f"--entero-preset ({'/'.join(ENTEROBASE_PRESET)}), or set both --entero-species and "
+                '--entero-scheme explicitly.'
+            )
+        return species, scheme, hiercc_field
+
+    def _entero_preset_values(self) -> dict[str, str]:
+        """
+        Looks up the selected EnteroBase preset's values, validating the preset name.
+        :return: The preset's values, or an empty dict if no preset was selected
+        """
+        if not self._entero_preset:
+            return {}
+        if self._entero_preset not in ENTEROBASE_PRESET:
+            raise errors.LinCodeError(
+                f"Unknown EnteroBase preset '{self._entero_preset}' (known presets: {', '.join(ENTEROBASE_PRESET)})"
+            )
+        return ENTEROBASE_PRESET[self._entero_preset]
 
 
 def _find_metadata_value(metadata: dict[str, str], candidate_keys: list[str], required: bool = True) -> str | None:
@@ -245,12 +290,15 @@ def _entero_hiercc_thresholds(hiercc: dict[str, Any]) -> list[int]:
     return sorted(distances, reverse=True)
 
 
-def _entero_species_scheme(url: str) -> tuple[str, str]:
+def _select_hiercc(info: dict[str, Any], hiercc_field: str | None) -> dict[str, Any]:
     """
-    Attempts to guess the EnteroBase species and scheme name from the URL (unreliable!).
-    :param url: Scheme URL
-    :return: (species, scheme) API slugs
+    Selects the hierCC object to derive LIN-code thresholds from. The preset-specified (or CLI-overridden) field
+    is used when present; otherwise - no preset matched, or that field is missing from the response - 'hierCCv0'
+    is preferred over 'hierCC' ('hierCCv0' is the original pass EnteroBase mapped LIN codes from).
+    :param info: The 'info' object of an EnteroBase ST API response
+    :param hiercc_field: Preferred hierCC field name ('hierCC'/'hierCCv0'), or None to choose heuristically
+    :return: The selected hierCC object (empty dict if neither field is present)
     """
-    segment = next(s for s in reversed(furl(url).path.segments) if s)
-    species_part, scheme_part = segment.split('.', 1)
-    return species_part.lower(), re.sub(r'v(\d+)$', r'_v\1', scheme_part)
+    if hiercc_field and info.get(hiercc_field):
+        return info[hiercc_field]
+    return info.get('hierCCv0') or info.get('hierCC', {})

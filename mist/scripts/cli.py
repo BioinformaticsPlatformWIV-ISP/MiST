@@ -14,7 +14,7 @@ from mist.scripts.mistcaller import MistCaller
 from mist.scripts.mistdists import MistDists
 from mist.scripts.mistdownload import MistDownload
 from mist.scripts.mistindex import MistIndex
-from mist.scripts.mistlincode import MistLinCode
+from mist.scripts.mistlincode import ENTEROBASE_PRESET, MistLinCode
 from mist.scripts.mistlist import MistList
 from mist.version import __version__
 
@@ -199,12 +199,23 @@ def call(
     help="Path to a file containing the EnteroBase API token (only required for EnteroBase databases)",
 )
 @click.option(
+    "--entero-preset",
+    type=click.Choice(list(ENTEROBASE_PRESET)),
+    help="EnteroBase preset supplying the API species/scheme and hierCC field (required for EnteroBase databases "
+         "unless --entero-species and --entero-scheme are both given)",
+)
+@click.option(
     "--entero-species",
-    help="EnteroBase API species name, by default it is estimated from the URL"
+    help="EnteroBase API species name, overriding the preset's"
 )
 @click.option(
     "--entero-scheme",
-    help="EnteroBase API scheme name, by default it is estimated from the URL"
+    help="EnteroBase API scheme name, overriding the preset's"
+)
+@click.option(
+    "--entero-hiercc-field",
+    help="EnteroBase hierCC field to derive LIN-code thresholds from (e.g. 'hierCC' or 'hierCCv0'), overriding "
+         "the preset's"
 )
 @_common_options
 def lincode(
@@ -212,8 +223,10 @@ def lincode(
     db: Path,
     output: Path,
     entero_token: Path | None,
+    entero_preset: str | None,
     entero_species: str | None,
     entero_scheme: str | None,
+    entero_hiercc_field: str | None,
     debug: bool,
     log: Path,
 ) -> None:
@@ -223,7 +236,12 @@ def lincode(
     initialize_logging(log_path=log, debug=debug)
     token = entero_token.read_text().strip() if entero_token is not None else None
     MistLinCode(
-        dir_db=db, entero_token=token, entero_species=entero_species, entero_scheme=entero_scheme
+        dir_db=db,
+        entero_token=token,
+        entero_preset=entero_preset,
+        entero_species=entero_species,
+        entero_scheme=entero_scheme,
+        entero_hiercc_field=entero_hiercc_field,
     ).run(mist_json, output)
 
 
