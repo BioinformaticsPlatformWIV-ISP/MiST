@@ -52,6 +52,7 @@ version = {attr = "mist.version.__version__"}
   "resources/citation.txt",
   "resources/pubmlst/download_bigsdb.py",
   "resources/testdata/*.fasta",
+  "resources/testdata/profiles.tsv",
   "resources/testdata/output/*.tsv",
   "resources/testdata/output/*.json"
 ]
