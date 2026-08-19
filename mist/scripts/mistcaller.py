@@ -124,9 +124,7 @@ class MistCaller:
                     'fasta',
                 )
 
-    def _query_profiles(
-        self, result_by_locus: dict[str, model.QueryResult]
-    ) -> tuple[list[model.Profile], int | None]:
+    def _query_profiles(self, result_by_locus: dict[str, model.QueryResult]) -> tuple[list[model.Profile], int | None]:
         """
         Queries the ST profiles matching the detected alleles. Prefers a prebuilt `ProfileIndex` (see `mist index
         --build-profile-index`) over scanning `profiles.tsv` directly when one is present - only worth building
@@ -234,11 +232,11 @@ class MistCaller:
             json.dump(
                 {
                     'alleles': {locus: dataclasses.asdict(res) for locus, res in results_by_locus.items()},
-                    'profiles': [{
-                        **dataclasses.asdict(p),
-                        'pct_match': pct_match,
-                        'nb_matches': nb_matches
-                    } for p in profiles] if len(profiles) > 0 else None,
+                    'profiles': [
+                        {**dataclasses.asdict(p), 'pct_match': pct_match, 'nb_matches': nb_matches} for p in profiles
+                    ]
+                    if len(profiles) > 0
+                    else None,
                     'metadata': {
                         'timestamp': datetime.now().isoformat(),
                         'tool_version': __version__,

@@ -69,12 +69,8 @@ class ProfileIndex:
             self._buckets = self._scatter_profile_ids(dir_data, self._loci, counts_by_locus_code, len(self._names))
             with open(dir_data / NAME_META, 'wb') as handle:
                 pickle.dump(
-                    {
-                        'loci': self._loci,
-                        'names': self._names,
-                        'metadata': self._metadata,
-                        'buckets': self._buckets
-                    }, handle,
+                    {'loci': self._loci, 'names': self._names, 'metadata': self._metadata, 'buckets': self._buckets},
+                    handle,
                 )
             logger.info(f'Profile index built: {len(self._names):,} profiles ({dir_data})')
 

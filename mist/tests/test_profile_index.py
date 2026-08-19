@@ -1,3 +1,4 @@
+import unittest
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -6,7 +7,6 @@ import pandas as pd
 from mist.app import model
 from mist.app.query.profileindex import ProfileIndex
 from mist.app.utils import testingutils
-import unittest
 
 
 class TestProfileIndex(unittest.TestCase):

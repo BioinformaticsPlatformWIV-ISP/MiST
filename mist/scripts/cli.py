@@ -202,20 +202,14 @@ def call(
     "--entero-preset",
     type=click.Choice(list(ENTEROBASE_PRESET)),
     help="EnteroBase preset supplying the API species/scheme and hierCC field (required for EnteroBase databases "
-         "unless --entero-species and --entero-scheme are both given)",
+    "unless --entero-species and --entero-scheme are both given)",
 )
-@click.option(
-    "--entero-species",
-    help="EnteroBase API species name, overriding the preset's"
-)
-@click.option(
-    "--entero-scheme",
-    help="EnteroBase API scheme name, overriding the preset's"
-)
+@click.option("--entero-species", help="EnteroBase API species name, overriding the preset's")
+@click.option("--entero-scheme", help="EnteroBase API scheme name, overriding the preset's")
 @click.option(
     "--entero-hiercc-field",
     help="EnteroBase hierCC field to derive LIN-code thresholds from (e.g. 'hierCC' or 'hierCCv0'), overriding "
-         "the preset's"
+    "the preset's",
 )
 @_common_options
 def lincode(

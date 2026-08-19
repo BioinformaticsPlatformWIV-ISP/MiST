@@ -55,8 +55,19 @@ class TestLinCodeHelpers(unittest.TestCase):
         :return: None
         """
         hiercc = {
-            'd0': '102245', 'd2': '102245', 'd5': '102245', 'd10': '102245', 'd20': '78391', 'd50': '4323',
-            'd100': '36', 'd150': '36', 'd200': '36', 'd400': '36', 'd900': '36', 'd2000': '36', 'd2600': '2',
+            'd0': '102245',
+            'd2': '102245',
+            'd5': '102245',
+            'd10': '102245',
+            'd20': '78391',
+            'd50': '4323',
+            'd100': '36',
+            'd150': '36',
+            'd200': '36',
+            'd400': '36',
+            'd900': '36',
+            'd2000': '36',
+            'd2600': '2',
             'd2850': '2',
         }
         self.assertEqual(
@@ -211,13 +222,35 @@ class TestMistLinCode(unittest.TestCase):
     ENTERO_INFO = {
         'lin_code': '0-0-3-0-0-0-0-3-3-7-0-0-0',
         'hierCC': {
-            'd0': '102245', 'd2': '102245', 'd5': '102245', 'd10': '102245', 'd20': '78391', 'd50': '4323',
-            'd100': '36', 'd150': '36', 'd200': '36', 'd400': '36', 'd900': '36', 'd2000': '36', 'd2600': '2',
+            'd0': '102245',
+            'd2': '102245',
+            'd5': '102245',
+            'd10': '102245',
+            'd20': '78391',
+            'd50': '4323',
+            'd100': '36',
+            'd150': '36',
+            'd200': '36',
+            'd400': '36',
+            'd900': '36',
+            'd2000': '36',
+            'd2600': '2',
             'd2850': '2',
         },
         'hierCCv0': {
-            'd0': '102245', 'd2': '102245', 'd5': '102245', 'd10': '102245', 'd20': '78391', 'd50': '4323',
-            'd100': '36', 'd200': '36', 'd400': '36', 'd900': '36', 'd2000': '36', 'd2600': '2', 'd2850': '2',
+            'd0': '102245',
+            'd2': '102245',
+            'd5': '102245',
+            'd10': '102245',
+            'd20': '78391',
+            'd50': '4323',
+            'd100': '36',
+            'd200': '36',
+            'd400': '36',
+            'd900': '36',
+            'd2000': '36',
+            'd2600': '2',
+            'd2850': '2',
         },
     }
 
@@ -241,9 +274,9 @@ class TestMistLinCode(unittest.TestCase):
                 downloader='enterobase',
                 url='https://enterobase.warwick.ac.uk/schemes/Senterica.cgMLSTv2/',
             )
-            result = MistLinCode(
-                dir_db=dir_temp, entero_token='dummy-token', entero_preset='salmonella'
-            ).extract({'profiles': [profile]})
+            result = MistLinCode(dir_db=dir_temp, entero_token='dummy-token', entero_preset='salmonella').extract(
+                {'profiles': [profile]}
+            )
 
         self.assertEqual('102245', result['st'])
         self.assertEqual(['0', '0', '3', '0', '0', '0', '0', '3', '3', '7', '0', '0', '0'], result['lincode_full'])
@@ -337,9 +370,9 @@ class TestMistLinCode(unittest.TestCase):
                 url='https://enterobase.warwick.ac.uk/schemes/Senterica.cgMLSTv2/',
             )
             with self.assertRaises(LinCodeError):
-                MistLinCode(
-                    dir_db=dir_temp, entero_token='dummy-token', entero_preset='klebsiella'
-                ).extract({'profiles': [profile]})
+                MistLinCode(dir_db=dir_temp, entero_token='dummy-token', entero_preset='klebsiella').extract(
+                    {'profiles': [profile]}
+                )
 
     @patch('mist.scripts.mistlincode.restutils.retrieve_page_data')
     def test_extract_enterobase_falls_back_to_hiercc_without_v0(self, mock_retrieve: Mock) -> None:
@@ -354,9 +387,19 @@ class TestMistLinCode(unittest.TestCase):
         info = {
             'lin_code': '0-0-0-0-2-89-0-0-4-0-2-1-36',
             'hierCC': {
-                'd0': '268260', 'd2': '151557', 'd5': '142807', 'd10': '109409', 'd20': '109409',
-                'd50': '71026', 'd100': '71026', 'd200': '71026', 'd400': '37', 'd1100': '13', 'd1500': '5',
-                'd2000': '2', 'd2350': '1',
+                'd0': '268260',
+                'd2': '151557',
+                'd5': '142807',
+                'd10': '109409',
+                'd20': '109409',
+                'd50': '71026',
+                'd100': '71026',
+                'd200': '71026',
+                'd400': '37',
+                'd1100': '13',
+                'd1500': '5',
+                'd2000': '2',
+                'd2350': '1',
             },
         }
         mock_retrieve.return_value.json.return_value = {'STs': [{'ST_id': '268260', 'info': info}]}
@@ -369,9 +412,9 @@ class TestMistLinCode(unittest.TestCase):
                 downloader='enterobase',
                 url='https://enterobase.warwick.ac.uk/schemes/Escherichia.cgMLSTv1/',
             )
-            result = MistLinCode(
-                dir_db=dir_temp, entero_token='dummy-token', entero_preset='ecoli'
-            ).extract({'profiles': [profile]})
+            result = MistLinCode(dir_db=dir_temp, entero_token='dummy-token', entero_preset='ecoli').extract(
+                {'profiles': [profile]}
+            )
 
         expected_full = ['0', '0', '0', '0', '2', '89', '0', '0', '4', '0', '2', '1', '36']
         self.assertEqual(expected_full, result['lincode_full'])
@@ -398,9 +441,9 @@ class TestMistLinCode(unittest.TestCase):
                 downloader='enterobase',
                 url='https://enterobase.warwick.ac.uk/schemes/Senterica.cgMLSTv2/',
             )
-            result = MistLinCode(
-                dir_db=dir_temp, entero_token='dummy-token', entero_preset='salmonella'
-            ).extract({'profiles': [profile]})
+            result = MistLinCode(dir_db=dir_temp, entero_token='dummy-token', entero_preset='salmonella').extract(
+                {'profiles': [profile]}
+            )
 
         self.assertIsNone(result['lincode_partial'])
         self.assertEqual([2, 0], result['thresholds'])
