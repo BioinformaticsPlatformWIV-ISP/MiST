@@ -1,6 +1,7 @@
+from collections import defaultdict
 from pathlib import Path
 
-import pandas as pd
+import numpy as np
 from Bio import SeqIO
 
 from mist.app.loggers.logger import logger
@@ -32,13 +33,13 @@ class ImperfectMatchDetector:
         :param dir_in: Input directory
         """
         self._dir_in = dir_in
-        # Parse the database sequences
-        records_in = []
+        # Parse the database sequences, grouped by length
+        self._seqs_by_length: dict[int, list[tuple[str, str]]] = defaultdict(list)
         with (self._dir_in / f'{self._dir_in.name}.fasta').open() as handle:
             for seq in SeqIO.parse(handle, 'fasta'):
-                records_in.append({'id': seq.id, 'seq': str(seq.seq), 'length': len(seq)})
-        self._data_seqs_db = pd.DataFrame(records_in)
-        logger.debug(f'Parsed: {len(self._data_seqs_db):,} sequences ({dir_in.name})')
+                self._seqs_by_length[len(seq)].append((seq.id, str(seq.seq)))
+        nb_seqs = sum(len(seqs) for seqs in self._seqs_by_length.values())
+        logger.debug(f'Parsed: {nb_seqs:,} sequences ({dir_in.name})')
 
     def retrieve_best_matching(self, seq: str, min_id: int) -> list[str]:
         """
@@ -47,22 +48,25 @@ class ImperfectMatchDetector:
         :param min_id: Min. % sequence identity
         :return: Seq ids for the best matching sequences
         """
-        data_subset = self._data_seqs_db[self._data_seqs_db['length'] == len(seq)].copy()
-        logger.debug(f'Found {len(data_subset):,} allele(s) matching the length of the detected sequence ({len(seq)})')
-        if len(data_subset) == 0:
-            viable_lengths = list(self._data_seqs_db['length'].unique())
+        candidates = self._seqs_by_length.get(len(seq), [])
+        logger.debug(f'Found {len(candidates):,} allele(s) matching the length of the detected sequence ({len(seq)})')
+        if len(candidates) == 0:
+            viable_lengths = list(self._seqs_by_length.keys())
             logger.debug(
                 f"Length of detected sequence ({len(seq):,}) does not match any alleles in the "
                 f"database ({', '.join(str(l) for l in sorted(viable_lengths))})"
             )
             raise InvalidLengthException(len(seq), viable_lengths)
 
-        data_subset['nb_matches'] = data_subset['seq'].apply(lambda x: sum(c1 == c2 for c1, c2 in zip(x, seq)))
-        max_matches = data_subset['nb_matches'].max()
+        # Count the matching positions for all candidates at once (one row per candidate)
+        seq_ids, seqs = zip(*candidates)
+        matrix = np.frombuffer(''.join(seqs).encode('ascii'), dtype=np.uint8).reshape(len(seqs), len(seq))
+        nb_matches = (matrix == np.frombuffer(seq.encode('ascii'), dtype=np.uint8)).sum(axis=1)
+        max_matches = nb_matches.max()
 
         # Check if the identity matches
         identity = 100 * max_matches / len(seq)
         if identity <= min_id:
             logger.debug(f'Identity ({identity:.2f}%) to best matching sequence is below threshold ({min_id}%).')
             return []
-        return list(data_subset[data_subset['nb_matches'] == max_matches]['id'])
+        return [seq_id for seq_id, nb in zip(seq_ids, nb_matches) if nb == max_matches]
