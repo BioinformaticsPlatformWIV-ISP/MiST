@@ -33,11 +33,11 @@ class ImperfectMatchDetector:
         :param dir_in: Input directory
         """
         self._dir_in = dir_in
-        # Parse the database sequences, grouped by length
+        # Parse the database sequences, grouped by length (lowercase, consistent with sequence hashing)
         self._seqs_by_length: dict[int, list[tuple[str, str]]] = defaultdict(list)
         with (self._dir_in / f'{self._dir_in.name}.fasta').open() as handle:
             for seq in SeqIO.parse(handle, 'fasta'):
-                self._seqs_by_length[len(seq)].append((seq.id, str(seq.seq)))
+                self._seqs_by_length[len(seq)].append((seq.id, str(seq.seq).lower()))
         nb_seqs = sum(len(seqs) for seqs in self._seqs_by_length.values())
         logger.debug(f'Parsed: {nb_seqs:,} sequences ({dir_in.name})')
 
@@ -61,7 +61,7 @@ class ImperfectMatchDetector:
         # Count the matching positions for all candidates at once (one row per candidate)
         seq_ids, seqs = zip(*candidates)
         matrix = np.frombuffer(''.join(seqs).encode('ascii'), dtype=np.uint8).reshape(len(seqs), len(seq))
-        nb_matches = (matrix == np.frombuffer(seq.encode('ascii'), dtype=np.uint8)).sum(axis=1)
+        nb_matches = (matrix == np.frombuffer(seq.lower().encode('ascii'), dtype=np.uint8)).sum(axis=1)
         max_matches = nb_matches.max()
 
         # Check if the identity matches
