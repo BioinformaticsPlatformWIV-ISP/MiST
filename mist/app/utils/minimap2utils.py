@@ -36,13 +36,20 @@ def create_index(path_fasta: Path) -> Path:
     return path_out
 
 
-def align(path_fasta: Path, path_fasta_db: Path, include_cigar: bool = False, threads: int = 1) -> pd.DataFrame:
+def align(
+    path_fasta: Path,
+    path_fasta_db: Path,
+    include_cigar: bool = False,
+    threads: int = 1,
+    min_mid_occ: int | None = None,
+) -> pd.DataFrame:
     """
     Runs Minimap2 on the input sequence and DB.
     :param path_fasta: Input FASTA path
     :param path_fasta_db: Database FASTA path or pre-built Minimap2 index (.mni)
     :param include_cigar: Include cigar string in output
     :param threads: Number of threads to use
+    :param min_mid_occ: Lower bound for the minimizer occurrence cutoff (-U)
     :return: Output results as DataFrame
     """
     command = Command(
@@ -51,12 +58,12 @@ def align(path_fasta: Path, path_fasta_db: Path, include_cigar: bool = False, th
                 'minimap2',
                 str(path_fasta_db),
                 str(path_fasta),
-                '-O 25 -E 1',  # ungapped alignment
-                '-N 10 --all-chain',  # include secondary alignments
+                '--all-chain',  # include secondary alignments
                 '-t',
                 str(threads),  # nb. of threads
             ]
-            + (['-c'] if include_cigar else [])
+            + (['-c -O 25 -E 1'] if include_cigar else [])  # gap penalties only apply to base-level alignment
+            + ([f'-U {min_mid_occ}'] if min_mid_occ is not None else [])
         )
     )
     command.run(Path().cwd(), disable_logging=False)

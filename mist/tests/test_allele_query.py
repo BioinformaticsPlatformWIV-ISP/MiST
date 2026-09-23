@@ -149,6 +149,20 @@ class TestAlleleQuery(unittest.TestCase):
             expected_tag = TestAlleleQuery.get_expected_tag(allele_by_locus[locus])
             self.assertIn(expected_tag, res.tags, f"No exact match for {locus}")
 
+    def test_min_mid_occ(self) -> None:
+        """
+        Tests that the minimizer occurrence cutoff scales with the largest nb. of representative alleles per locus.
+        :return: None
+        """
+        caller = AlleleQueryMinimap2(dir_db=self.db_path)
+        with open(self.db_path / 'loci_repr.fasta') as handle:
+            loci = [line[1:].strip().rsplit('_', 1)[0] for line in handle if line.startswith('>')]
+        nb_repr_max = max(loci.count(locus) for locus in set(loci))
+        self.assertEqual(
+            caller._get_min_mid_occ(),
+            max(AlleleQueryMinimap2.MIN_MID_OCC_DEFAULT, AlleleQueryMinimap2.MID_OCC_FACTOR * nb_repr_max),
+        )
+
 
 if __name__ == '__main__':
     unittest.main()

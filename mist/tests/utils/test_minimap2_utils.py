@@ -51,6 +51,16 @@ class TestMinimap2Utils(unittest.TestCase):
         data_out = minimap2utils.align(path_query, path_db)
         self.assertGreater(len(data_out), 0)
 
+    def test_minimap2_query_with_min_mid_occ(self) -> None:
+        """
+        Tests minimap2 query function with a lower bound for the minimizer occurrence cutoff.
+        :return: None
+        """
+        path_db = Path(str(files('mist').joinpath('resources/testdata/NEIS0140-subset.fasta')))
+        path_query = Path(str(files('mist').joinpath('resources/testdata/query-perfect_hits.fasta')))
+        data_out = minimap2utils.align(path_query, path_db, min_mid_occ=1000)
+        self.assertGreater(len(data_out), 0)
+
     def test_minimap2_query_with_cigar(self) -> None:
         """
         Tests minimap2 query function with Cigar string.

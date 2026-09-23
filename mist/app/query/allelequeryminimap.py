@@ -10,6 +10,7 @@ from mist.app.loggers.logger import logger
 from mist.app.query.bestmatching import ImperfectMatchDetector, InvalidLengthException
 from mist.app.query.seqholder import SeqHolder
 from mist.app.utils import (
+    dbutils,
     minimap2utils,
     sequenceutils,
     unique_preserve_order,
@@ -53,6 +54,12 @@ class AlleleQueryMinimap2:
     """
     Queries alleles using Minimap2.
     """
+
+    # Minimap2 default lower bound for the minimizer occurrence cutoff
+    MIN_MID_OCC_DEFAULT = 10
+
+    # Factor applied to the largest nb. of representative alleles per locus to obtain the occurrence cutoff
+    MID_OCC_FACTOR = 2
 
     def __init__(
         self,
@@ -205,6 +212,19 @@ class AlleleQueryMinimap2:
         logger.debug(f'Screening for imperfect hits for: {locus_name}')
         return self._extract_partial_match(df_alignment, locus_name)
 
+    def _get_min_mid_occ(self) -> int:
+        """
+        Returns the minimum minimizer occurrence cutoff for Minimap2. Minimizers occurring more often than the cutoff
+        are ignored. Loci with many representatives (e.g., variable-length repeats) exceed the default and are missed.
+        :return: Minimum occurrence cutoff
+        """
+        counts = dbutils.count_alleles_by_locus(self._dir_db / 'loci_repr.fasta')
+        if len(counts) == 0:
+            return AlleleQueryMinimap2.MIN_MID_OCC_DEFAULT
+        locus, nb_repr = counts.most_common(1)[0]
+        logger.debug(f'Largest nb. of representative alleles: {nb_repr:,} ({locus})')
+        return max(AlleleQueryMinimap2.MIN_MID_OCC_DEFAULT, AlleleQueryMinimap2.MID_OCC_FACTOR * nb_repr)
+
     def query(self, path_fasta: Path, loci: list[str] | None = None, threads: int = 1) -> dict[str, model.QueryResult]:
         """
         Queries the database with the given FASTA file.
@@ -222,8 +242,11 @@ class AlleleQueryMinimap2:
         if not path_db.exists():
             logger.warning(f'Minimap2 index not found ({path_db.name}), indexing the representative alleles')
             path_db = self._dir_db / 'loci_repr.fasta'
-        logger.info('Performing seed alignment with Minimap2')
-        data_mm2 = minimap2utils.align(path_fasta, path_db, include_cigar=False, threads=threads)
+        min_mid_occ = self._get_min_mid_occ()
+        logger.info(f'Performing seed alignment with Minimap2 (min. occurrence cutoff: {min_mid_occ:,})')
+        data_mm2 = minimap2utils.align(
+            path_fasta, path_db, include_cigar=False, threads=threads, min_mid_occ=min_mid_occ
+        )
         logger.info(f'{len(data_mm2):,} seed alignments')
         if self._save_minimap2:
             path_out = self._dir_out / 'minimap2_parsed.tsv'
