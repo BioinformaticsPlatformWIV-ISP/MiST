@@ -217,11 +217,13 @@ class AlleleQueryMinimap2:
         with open(self._dir_db / 'loci.txt') as handle:
             all_loci = [l.strip() for l in handle]
 
-        # Seed alignment
+        # Seed alignment (use the pre-built index if available)
+        path_db = self._dir_db / 'loci_repr.fasta.mni'
+        if not path_db.exists():
+            logger.warning(f'Minimap2 index not found ({path_db.name}), indexing the representative alleles')
+            path_db = self._dir_db / 'loci_repr.fasta'
         logger.info('Performing seed alignment with Minimap2')
-        data_mm2 = minimap2utils.align(
-            path_fasta, self._dir_db / 'loci_repr.fasta', include_cigar=False, threads=threads
-        )
+        data_mm2 = minimap2utils.align(path_fasta, path_db, include_cigar=False, threads=threads)
         logger.info(f'{len(data_mm2):,} seed alignments')
         if self._save_minimap2:
             path_out = self._dir_out / 'minimap2_parsed.tsv'

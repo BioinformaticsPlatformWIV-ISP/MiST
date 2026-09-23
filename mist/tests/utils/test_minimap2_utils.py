@@ -38,7 +38,7 @@ class TestMinimap2Utils(unittest.TestCase):
             self.assertGreater(path_index.stat().st_size, 0)
 
             # Align to index
-            data_out = minimap2utils.align(path_query, path_in)
+            data_out = minimap2utils.align(path_query, path_index)
             self.assertGreater(len(data_out), 0)
 
     def test_minimap2_query(self) -> None:

@@ -40,7 +40,7 @@ def align(path_fasta: Path, path_fasta_db: Path, include_cigar: bool = False, th
     """
     Runs Minimap2 on the input sequence and DB.
     :param path_fasta: Input FASTA path
-    :param path_fasta_db: Database FASTA path
+    :param path_fasta_db: Database FASTA path or pre-built Minimap2 index (.mni)
     :param include_cigar: Include cigar string in output
     :param threads: Number of threads to use
     :return: Output results as DataFrame
