@@ -251,7 +251,7 @@ def get_new_session_token():
         access_token=access_token,
         access_token_secret=access_secret,
     )
-    r = session_request.get(url, headers={"User-Agent": "BIGSdb downloader"})
+    r = session_request.get(url, headers={"User-Agent": "BIGSdb downloader"}, params={})
     if r.status_code == 200:
         token = r.json()["oauth_token"]
         secret = r.json()["oauth_token_secret"]
