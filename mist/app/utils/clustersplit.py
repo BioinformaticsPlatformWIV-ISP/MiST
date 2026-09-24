@@ -95,6 +95,14 @@ class ClusterSplit:
         data['offset_start'] = data['s2'] - data['[S1]']
         data['offset_end'] = (data['[LEN Q]'] - data['e2']) - (data['[LEN R]'] - data['[E1]'])
 
+        # Only retain alignments consistent with the longest alignment of each sequence
+        data_main = data.sort_values('[LEN 2]', ascending=False).drop_duplicates('[TAG Q]')
+        main = data_main.set_index('[TAG Q]').loc[data['[TAG Q]']].set_axis(data.index)
+        is_before = (data['[S1]'] < main['[S1]']) & (data['s2'] < main['s2'])
+        is_after = (data['[E1]'] > main['[E1]']) & (data['e2'] > main['e2'])
+        is_main = data.index.isin(data_main.index)
+        data = data[(is_rev == (main['[S2]'] > main['[E2]'])) & (is_before | is_after | is_main)]
+
         # Select the outermost alignments (ties: longest alignment)
         data_first = data.sort_values(['s2', '[LEN 2]'], ascending=[True, False]).drop_duplicates('[TAG Q]')
         data_last = data.sort_values(['e2', '[LEN 2]'], ascending=[False, False]).drop_duplicates('[TAG Q]')
