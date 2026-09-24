@@ -264,7 +264,7 @@ class AlleleQueryMinimap2:
             return {locus: model.QueryResult(model.ALLELE_MISSING, [], tags=[model.Tag.ABSENT]) for locus in all_loci}
 
         # Extract loci
-        data_mm2['locus'] = data_mm2['sseqid'].str.rsplit('_', n=1).str[0]
+        data_mm2['locus'] = data_mm2['sseqid'].map(dbutils.get_locus_from_id)
         nb_loci = len(data_mm2['locus'].unique())
         logger.info(f"{nb_loci:,}/{len(all_loci):,} loci aligned ({100 * nb_loci / len(all_loci):.2f}%)")
 

@@ -20,6 +20,15 @@ def is_valid_db(dir_in: Path) -> bool:
     return True
 
 
+def get_locus_from_id(seq_id: str) -> str:
+    """
+    Returns the locus name from a sequence id formatted as '{locus}_{allele}'.
+    :param seq_id: Sequence id
+    :return: Locus name
+    """
+    return seq_id.rsplit('_', 1)[0]
+
+
 def count_alleles_by_locus(path_fasta: Path) -> Counter[str]:
     """
     Counts the number of alleles per locus in the input FASTA file (sequence ids formatted as '{locus}_{allele}').
@@ -27,7 +36,7 @@ def count_alleles_by_locus(path_fasta: Path) -> Counter[str]:
     :return: Nb. of alleles by locus
     """
     with open(path_fasta) as handle:
-        return Counter(seq.id.rsplit('_', 1)[0] for seq in SeqIO.parse(handle, 'fasta'))
+        return Counter(get_locus_from_id(seq.id) for seq in SeqIO.parse(handle, 'fasta'))
 
 
 def _get_allele_id(seq_record: SeqIO.SeqRecord, locus_name: str, requires_match: bool = False) -> str:
