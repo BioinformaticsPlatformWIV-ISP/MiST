@@ -5,6 +5,23 @@ import pandas as pd
 
 from mist.app.utils.command import Command
 
+# Columns of the show-coords output ('-rcl -T'), the [TAGS] column in the header spans two fields
+COLS_COORDS = [
+    '[S1]',
+    '[E1]',
+    '[S2]',
+    '[E2]',
+    '[LEN 1]',
+    '[LEN 2]',
+    '[% IDY]',
+    '[LEN R]',
+    '[LEN Q]',
+    '[COV R]',
+    '[COV Q]',
+    '[TAG R]',
+    '[TAG Q]',
+]
+
 
 def nucmer(path_fasta_ref: Path, path_fasta_in: Path, dir_out: Path, threads: int = 1, debug: bool = False) -> Path:
     """
@@ -48,4 +65,4 @@ def show_coords(path_tsv: Path, debug: bool = False) -> pd.DataFrame:
     command.run(Path().cwd(), disable_logging=not debug)
     if not command.exit_code == 0:
         raise RuntimeError(f'Error running show-coords: {command.stderr}')
-    return pd.read_table(StringIO(command.stdout), skiprows=2)
+    return pd.read_table(StringIO(command.stdout), skiprows=2, header=0, names=COLS_COORDS)
