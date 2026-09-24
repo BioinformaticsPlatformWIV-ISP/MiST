@@ -1,11 +1,12 @@
 import json
+from collections import Counter
 from enum import Enum
 from pathlib import Path
 from typing import Optional
 
 import pandas as pd
 
-from mist.app import model
+from mist.app import NAME_REPR_INFO, model
 from mist.app.loggers.logger import logger
 from mist.app.query.bestmatching import ImperfectMatchDetector, InvalidLengthException
 from mist.app.query.seqholder import SeqHolder
@@ -142,7 +143,7 @@ class AlleleQueryMinimap2:
             return model.QueryResult(model.ALLELE_MISSING, [], tags=[model.Tag.EDGE])
 
         # Screen for imperfect matches
-        best_matching = ImperfectMatchDetector(self._dir_db / locus_name)
+        best_matching = ImperfectMatchDetector(self._dir_db / locus_name, len(seq))
         try:
             seq_ids_closest = best_matching.retrieve_best_matching(seq, self._min_id_novel)
         except InvalidLengthException:
@@ -218,7 +219,13 @@ class AlleleQueryMinimap2:
         are ignored. Loci with many representatives (e.g., variable-length repeats) exceed the default and are missed.
         :return: Minimum occurrence cutoff
         """
-        counts = dbutils.count_alleles_by_locus(self._dir_db / 'loci_repr.fasta')
+        path_repr_info = self._dir_db / NAME_REPR_INFO
+        if path_repr_info.exists():
+            with path_repr_info.open() as handle:
+                counts = Counter(json.load(handle)['nb_repr_by_locus'])
+        else:
+            logger.debug(f'{NAME_REPR_INFO} not found, counting the representative alleles')
+            counts = dbutils.count_alleles_by_locus(self._dir_db / 'loci_repr.fasta')
         if len(counts) == 0:
             return AlleleQueryMinimap2.MIN_MID_OCC_DEFAULT
         locus, nb_repr = counts.most_common(1)[0]
