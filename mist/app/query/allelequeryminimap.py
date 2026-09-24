@@ -2,7 +2,7 @@ import json
 from collections import Counter
 from enum import Enum
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import pandas as pd
 
@@ -87,26 +87,28 @@ class AlleleQueryMinimap2:
         self._save_minimap2 = save_minimap2
 
     @staticmethod
-    def __get_coord(x: pd.Series) -> tuple[str, int, int]:
+    def _add_query_coords(data_mm2: pd.DataFrame) -> None:
         """
-        Constructs the coordinate string to retrieve the target sequence from the input assembly.
-        :param x: BLAST output records
-        :return: Coordinate string
+        Adds the coordinates of the full-length target sequence in the input assembly, by extending the alignment with
+        the unaligned parts of the representative allele.
+        :param data_mm2: Minimap2 alignment data (updated in place)
+        :return: None
         """
-        if x['sstrand'] in ('plus', '+'):
-            overhang_left = x['sstart']
-            overhang_right = x['slen'] - x['send']
-            return x['qseqid'], x['qstart'] + 1 - overhang_left, x['qend'] + overhang_right
-        else:
-            overhang_left = x['sstart']
-            overhang_right = x['slen'] - x['send']
-            return x['qseqid'], x['qstart'] + 1 - overhang_right, x['qend'] + overhang_left
+        is_plus = data_mm2['sstrand'].isin(['plus', '+'])
+        overhang_left = data_mm2['sstart']
+        overhang_right = data_mm2['slen'] - data_mm2['send']
+        data_mm2['query_name'] = data_mm2['qseqid']
+        data_mm2['query_start'] = data_mm2['qstart'] + 1 - overhang_left.where(is_plus, overhang_right)
+        data_mm2['query_end'] = data_mm2['qend'] + overhang_right.where(is_plus, overhang_left)
 
-    def _extract_exact_match(self, seq: str, row: pd.Series, data_locus: pd.DataFrame) -> model.AlleleResult | None:
+    @staticmethod
+    def _extract_exact_match(
+        seq: str, alignment: model.Alignment, data_locus: dict[str, Any]
+    ) -> model.AlleleResult | None:
         """
         Checks for an exact match.
         :param seq: Allele sequence
-        :param row: Alignment record
+        :param alignment: Alignment in the input assembly
         :param data_locus: Locus data
         :return: Match
         """
@@ -115,13 +117,7 @@ class AlleleQueryMinimap2:
             allele = data_locus['hashes'].get(sequenceutils.hash_sequence(sequenceutils.rev_complement(seq)))
         if allele is None:
             return None
-        return model.AlleleResult(
-            allele=allele,
-            alignment=model.Alignment(
-                seq_id=row['query_name'], start=row['query_start'], end=row['query_end'], strand=row['sstrand']
-            ),
-            length=len(seq),
-        )
+        return model.AlleleResult(allele=allele, alignment=alignment, length=len(seq))
 
     def _extract_partial_match(self, df_alignment: pd.DataFrame, locus_name: str) -> model.QueryResult | None:
         """
@@ -189,14 +185,16 @@ class AlleleQueryMinimap2:
 
         # Process seed alignments
         matches = []
-        for _, row in df_alignment.iterrows():
+        cols = ['query_name', 'query_start', 'query_end', 'sstrand']
+        for seq_id, start, end, strand in df_alignment[cols].itertuples(index=False, name=None):
             # Retrieve the full sequence
-            seq = self._seq_holder.get_seq(row['query_name'], row['query_start'], row['query_end'])
+            seq = self._seq_holder.get_seq(seq_id, start, end)
             if (seq is None) or (len(seq) == 0):
                 continue
 
             # Check for an exact match
-            match_perfect = self._extract_exact_match(seq, row, data_locus)
+            alignment = model.Alignment(seq_id=seq_id, start=start, end=end, strand=strand)
+            match_perfect = self._extract_exact_match(seq, alignment, data_locus)
             if match_perfect is not None:
                 matches.append(match_perfect)
 
@@ -271,9 +269,7 @@ class AlleleQueryMinimap2:
         logger.info(f"{nb_loci:,}/{len(all_loci):,} loci aligned ({100 * nb_loci / len(all_loci):.2f}%)")
 
         # Calculate query string and remove duplicates
-        data_mm2[['query_name', 'query_start', 'query_end']] = data_mm2.apply(
-            lambda x: AlleleQueryMinimap2.__get_coord(x), axis=1, result_type='expand'
-        )
+        AlleleQueryMinimap2._add_query_coords(data_mm2)
         data_mm2.drop_duplicates(['locus', 'query_name', 'query_start', 'query_end'], keep='first', inplace=True)
         logger.info(f'{len(data_mm2):,} seed alignments (without duplicates)')
 

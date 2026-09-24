@@ -1,4 +1,4 @@
-﻿import unittest
+import unittest
 from pathlib import Path
 
 from mist.app.query.bestmatching import ImperfectMatchDetector, InvalidLengthException

@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import numpy as np
-from Bio import SeqIO
+from Bio.SeqIO.FastaIO import SimpleFastaParser
 
 from mist.app.loggers.logger import logger
 
@@ -38,10 +38,10 @@ class ImperfectMatchDetector:
         self._candidates: list[tuple[str, str]] = []
         self._lengths: set[int] = set()
         with (self._dir_in / f'{self._dir_in.name}.fasta').open() as handle:
-            for seq in SeqIO.parse(handle, 'fasta'):
+            for title, seq in SimpleFastaParser(handle):
                 self._lengths.add(len(seq))
                 if len(seq) == seq_length:
-                    self._candidates.append((seq.id, str(seq.seq).lower()))
+                    self._candidates.append((title.split(None, 1)[0], seq.lower()))
         logger.debug(f'Parsed: {len(self._candidates):,} sequences with length {seq_length:,} ({dir_in.name})')
 
     def retrieve_best_matching(self, seq: str, min_id: int) -> list[str]:
