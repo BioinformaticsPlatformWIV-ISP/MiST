@@ -2,7 +2,7 @@ import unittest
 from importlib.resources import files
 from pathlib import Path
 
-from mist.app import model
+from mist.app import NAME_REPR_INFO, model
 from mist.app.query.allelequeryminimap import AlleleQueryMinimap2, MultiStrategy
 from mist.app.utils import testingutils
 from mist.scripts.mistindex import MistIndex
@@ -158,10 +158,17 @@ class TestAlleleQuery(unittest.TestCase):
         with open(self.db_path / 'loci_repr.fasta') as handle:
             loci = [line[1:].strip().rsplit('_', 1)[0] for line in handle if line.startswith('>')]
         nb_repr_max = max(loci.count(locus) for locus in set(loci))
-        self.assertEqual(
-            caller._get_min_mid_occ(),
-            max(AlleleQueryMinimap2.MIN_MID_OCC_DEFAULT, AlleleQueryMinimap2.MID_OCC_FACTOR * nb_repr_max),
+        min_mid_occ_expected = max(
+            AlleleQueryMinimap2.MIN_MID_OCC_DEFAULT, AlleleQueryMinimap2.MID_OCC_FACTOR * nb_repr_max
         )
+
+        # Counts stored at index time
+        self.assertTrue((self.db_path / NAME_REPR_INFO).exists())
+        self.assertEqual(caller._get_min_mid_occ(), min_mid_occ_expected)
+
+        # Fallback for databases created without the counts file
+        (self.db_path / NAME_REPR_INFO).unlink()
+        self.assertEqual(caller._get_min_mid_occ(), min_mid_occ_expected)
 
 
 if __name__ == '__main__':
