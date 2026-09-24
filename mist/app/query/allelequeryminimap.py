@@ -8,7 +8,8 @@ import pandas as pd
 
 from mist.app import NAME_REPR_INFO, model
 from mist.app.loggers.logger import logger
-from mist.app.query.bestmatching import ImperfectMatchDetector, InvalidLengthException
+from mist.app.query import bestmatching
+from mist.app.query.bestmatching import InvalidLengthException
 from mist.app.query.seqholder import SeqHolder
 from mist.app.utils import (
     dbutils,
@@ -139,9 +140,8 @@ class AlleleQueryMinimap2:
             return model.QueryResult(model.ALLELE_MISSING, [], tags=[model.Tag.EDGE])
 
         # Screen for imperfect matches
-        best_matching = ImperfectMatchDetector(self._dir_db / locus_name, len(seq))
         try:
-            seq_ids_closest = best_matching.retrieve_best_matching(seq, self._min_id_novel)
+            seq_ids_closest = bestmatching.retrieve_best_matching(self._dir_db / locus_name, seq, self._min_id_novel)
         except InvalidLengthException:
             return model.QueryResult(model.ALLELE_MISSING, [], tags=[model.Tag.INDEL])
 
