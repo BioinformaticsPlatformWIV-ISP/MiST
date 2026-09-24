@@ -1,7 +1,7 @@
 from pathlib import Path
 
-import pandas as pd
-from Bio import SeqIO
+import numpy as np
+from Bio.SeqIO.FastaIO import SimpleFastaParser
 
 from mist.app.loggers.logger import logger
 
@@ -21,48 +21,40 @@ class InvalidLengthException(Exception):
         self.allowed = allowed
 
 
-class ImperfectMatchDetector:
+def retrieve_best_matching(dir_in: Path, seq: str, min_id: int) -> list[str]:
     """
-    Identifies the best matching imperfect hit.
+    Retrieves the best matching allele(s) for the target sequence, only alleles with the same length are considered.
+    :param dir_in: Locus directory
+    :param seq: Target sequence
+    :param min_id: Min. % sequence identity
+    :return: Seq ids for the best matching alleles
     """
+    # Parse the alleles with the same length as the target sequence (lowercase, consistent with sequence hashing)
+    candidates: list[tuple[str, str]] = []
+    lengths: set[int] = set()
+    with (dir_in / f'{dir_in.name}.fasta').open() as handle:
+        for title, seq_allele in SimpleFastaParser(handle):
+            lengths.add(len(seq_allele))
+            if len(seq_allele) == len(seq):
+                candidates.append((title.split(None, 1)[0], seq_allele.lower()))
+    logger.debug(f'Found {len(candidates):,} allele(s) matching the length of the detected sequence ({len(seq)})')
+    if len(candidates) == 0:
+        viable_lengths = list(lengths)
+        logger.debug(
+            f"Length of detected sequence ({len(seq):,}) does not match any alleles in the "
+            f"database ({', '.join(str(l) for l in sorted(viable_lengths))})"
+        )
+        raise InvalidLengthException(len(seq), viable_lengths)
 
-    def __init__(self, dir_in: Path) -> None:
-        """
-        Initializes the detector.
-        :param dir_in: Input directory
-        """
-        self._dir_in = dir_in
-        # Parse the database sequences
-        records_in = []
-        with (self._dir_in / f'{self._dir_in.name}.fasta').open() as handle:
-            for seq in SeqIO.parse(handle, 'fasta'):
-                records_in.append({'id': seq.id, 'seq': str(seq.seq), 'length': len(seq)})
-        self._data_seqs_db = pd.DataFrame(records_in)
-        logger.debug(f'Parsed: {len(self._data_seqs_db):,} sequences ({dir_in.name})')
+    # Count the matching positions for all candidates at once (one row per candidate)
+    seq_ids, seqs = zip(*candidates)
+    matrix = np.frombuffer(''.join(seqs).encode('ascii'), dtype=np.uint8).reshape(len(seqs), len(seq))
+    nb_matches = (matrix == np.frombuffer(seq.lower().encode('ascii'), dtype=np.uint8)).sum(axis=1)
+    max_matches = nb_matches.max()
 
-    def retrieve_best_matching(self, seq: str, min_id: int) -> list[str]:
-        """
-        Retrieves the best matching sequence(s) for the target sequence.
-        :param seq: Target sequence
-        :param min_id: Min. % sequence identity
-        :return: Seq ids for the best matching sequences
-        """
-        data_subset = self._data_seqs_db[self._data_seqs_db['length'] == len(seq)].copy()
-        logger.debug(f'Found {len(data_subset):,} allele(s) matching the length of the detected sequence ({len(seq)})')
-        if len(data_subset) == 0:
-            viable_lengths = list(self._data_seqs_db['length'].unique())
-            logger.debug(
-                f"Length of detected sequence ({len(seq):,}) does not match any alleles in the "
-                f"database ({', '.join(str(l) for l in sorted(viable_lengths))})"
-            )
-            raise InvalidLengthException(len(seq), viable_lengths)
-
-        data_subset['nb_matches'] = data_subset['seq'].apply(lambda x: sum(c1 == c2 for c1, c2 in zip(x, seq)))
-        max_matches = data_subset['nb_matches'].max()
-
-        # Check if the identity matches
-        identity = 100 * max_matches / len(seq)
-        if identity <= min_id:
-            logger.debug(f'Identity ({identity:.2f}%) to best matching sequence is below threshold ({min_id}%).')
-            return []
-        return list(data_subset[data_subset['nb_matches'] == max_matches]['id'])
+    # Check if the identity matches
+    identity = 100 * max_matches / len(seq)
+    if identity <= min_id:
+        logger.debug(f'Identity ({identity:.2f}%) to best matching sequence is below threshold ({min_id}%).')
+        return []
+    return [seq_id for seq_id, nb in zip(seq_ids, nb_matches) if nb == max_matches]

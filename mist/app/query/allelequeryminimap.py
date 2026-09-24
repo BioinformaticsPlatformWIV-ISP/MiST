@@ -1,15 +1,18 @@
 import json
+from collections import Counter
 from enum import Enum
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import pandas as pd
 
-from mist.app import model
+from mist.app import NAME_REPR_INFO, model
 from mist.app.loggers.logger import logger
-from mist.app.query.bestmatching import ImperfectMatchDetector, InvalidLengthException
+from mist.app.query import bestmatching
+from mist.app.query.bestmatching import InvalidLengthException
 from mist.app.query.seqholder import SeqHolder
 from mist.app.utils import (
+    dbutils,
     minimap2utils,
     sequenceutils,
     unique_preserve_order,
@@ -54,6 +57,12 @@ class AlleleQueryMinimap2:
     Queries alleles using Minimap2.
     """
 
+    # Minimap2 default lower bound for the minimizer occurrence cutoff
+    MIN_MID_OCC_DEFAULT = 10
+
+    # Factor applied to the largest nb. of representative alleles per locus to obtain the occurrence cutoff
+    MID_OCC_FACTOR = 2
+
     def __init__(
         self,
         dir_db: Path,
@@ -79,26 +88,28 @@ class AlleleQueryMinimap2:
         self._save_minimap2 = save_minimap2
 
     @staticmethod
-    def __get_coord(x: pd.Series) -> tuple[str, int, int]:
+    def _add_query_coords(data_mm2: pd.DataFrame) -> None:
         """
-        Constructs the coordinate string to retrieve the target sequence from the input assembly.
-        :param x: BLAST output records
-        :return: Coordinate string
+        Adds the coordinates of the full-length target sequence in the input assembly, by extending the alignment with
+        the unaligned parts of the representative allele.
+        :param data_mm2: Minimap2 alignment data (updated in place)
+        :return: None
         """
-        if x['sstrand'] in ('plus', '+'):
-            overhang_left = x['sstart']
-            overhang_right = x['slen'] - x['send']
-            return x['qseqid'], x['qstart'] + 1 - overhang_left, x['qend'] + overhang_right
-        else:
-            overhang_left = x['sstart']
-            overhang_right = x['slen'] - x['send']
-            return x['qseqid'], x['qstart'] + 1 - overhang_right, x['qend'] + overhang_left
+        is_plus = data_mm2['sstrand'].isin(['plus', '+'])
+        overhang_left = data_mm2['sstart']
+        overhang_right = data_mm2['slen'] - data_mm2['send']
+        data_mm2['query_name'] = data_mm2['qseqid']
+        data_mm2['query_start'] = data_mm2['qstart'] + 1 - overhang_left.where(is_plus, overhang_right)
+        data_mm2['query_end'] = data_mm2['qend'] + overhang_right.where(is_plus, overhang_left)
 
-    def _extract_exact_match(self, seq: str, row: pd.Series, data_locus: pd.DataFrame) -> model.AlleleResult | None:
+    @staticmethod
+    def _extract_exact_match(
+        seq: str, alignment: model.Alignment, data_locus: dict[str, Any]
+    ) -> model.AlleleResult | None:
         """
         Checks for an exact match.
         :param seq: Allele sequence
-        :param row: Alignment record
+        :param alignment: Alignment in the input assembly
         :param data_locus: Locus data
         :return: Match
         """
@@ -107,13 +118,7 @@ class AlleleQueryMinimap2:
             allele = data_locus['hashes'].get(sequenceutils.hash_sequence(sequenceutils.rev_complement(seq)))
         if allele is None:
             return None
-        return model.AlleleResult(
-            allele=allele,
-            alignment=model.Alignment(
-                seq_id=row['query_name'], start=row['query_start'], end=row['query_end'], strand=row['sstrand']
-            ),
-            length=len(seq),
-        )
+        return model.AlleleResult(allele=allele, alignment=alignment, length=len(seq))
 
     def _extract_partial_match(self, df_alignment: pd.DataFrame, locus_name: str) -> model.QueryResult | None:
         """
@@ -135,9 +140,8 @@ class AlleleQueryMinimap2:
             return model.QueryResult(model.ALLELE_MISSING, [], tags=[model.Tag.EDGE])
 
         # Screen for imperfect matches
-        best_matching = ImperfectMatchDetector(self._dir_db / locus_name)
         try:
-            seq_ids_closest = best_matching.retrieve_best_matching(seq, self._min_id_novel)
+            seq_ids_closest = bestmatching.retrieve_best_matching(self._dir_db / locus_name, seq, self._min_id_novel)
         except InvalidLengthException:
             return model.QueryResult(model.ALLELE_MISSING, [], tags=[model.Tag.INDEL])
 
@@ -181,14 +185,16 @@ class AlleleQueryMinimap2:
 
         # Process seed alignments
         matches = []
-        for _, row in df_alignment.iterrows():
+        cols = ['query_name', 'query_start', 'query_end', 'sstrand']
+        for seq_id, start, end, strand in df_alignment[cols].itertuples(index=False, name=None):
             # Retrieve the full sequence
-            seq = self._seq_holder.get_seq(row['query_name'], row['query_start'], row['query_end'])
+            seq = self._seq_holder.get_seq(seq_id, start, end)
             if (seq is None) or (len(seq) == 0):
                 continue
 
             # Check for an exact match
-            match_perfect = self._extract_exact_match(seq, row, data_locus)
+            alignment = model.Alignment(seq_id=seq_id, start=start, end=end, strand=strand)
+            match_perfect = self._extract_exact_match(seq, alignment, data_locus)
             if match_perfect is not None:
                 matches.append(match_perfect)
 
@@ -205,6 +211,25 @@ class AlleleQueryMinimap2:
         logger.debug(f'Screening for imperfect hits for: {locus_name}')
         return self._extract_partial_match(df_alignment, locus_name)
 
+    def _get_min_mid_occ(self) -> int:
+        """
+        Returns the minimum minimizer occurrence cutoff for Minimap2. Minimizers occurring more often than the cutoff
+        are ignored. Loci with many representatives (e.g., variable-length repeats) exceed the default and are missed.
+        :return: Minimum occurrence cutoff
+        """
+        path_repr_info = self._dir_db / NAME_REPR_INFO
+        if path_repr_info.exists():
+            with path_repr_info.open() as handle:
+                counts = Counter(json.load(handle)['nb_repr_by_locus'])
+        else:
+            logger.debug(f'{NAME_REPR_INFO} not found, counting the representative alleles')
+            counts = dbutils.count_alleles_by_locus(self._dir_db / 'loci_repr.fasta')
+        if len(counts) == 0:
+            return AlleleQueryMinimap2.MIN_MID_OCC_DEFAULT
+        locus, nb_repr = counts.most_common(1)[0]
+        logger.debug(f'Largest nb. of representative alleles: {nb_repr:,} ({locus})')
+        return max(AlleleQueryMinimap2.MIN_MID_OCC_DEFAULT, AlleleQueryMinimap2.MID_OCC_FACTOR * nb_repr)
+
     def query(self, path_fasta: Path, loci: list[str] | None = None, threads: int = 1) -> dict[str, model.QueryResult]:
         """
         Queries the database with the given FASTA file.
@@ -217,10 +242,15 @@ class AlleleQueryMinimap2:
         with open(self._dir_db / 'loci.txt') as handle:
             all_loci = [l.strip() for l in handle]
 
-        # Seed alignment
-        logger.info('Performing seed alignment with Minimap2')
+        # Seed alignment (use the pre-built index if available)
+        path_db = self._dir_db / 'loci_repr.fasta.mni'
+        if not path_db.exists():
+            logger.warning(f'Minimap2 index not found ({path_db.name}), indexing the representative alleles')
+            path_db = self._dir_db / 'loci_repr.fasta'
+        min_mid_occ = self._get_min_mid_occ()
+        logger.info(f'Performing seed alignment with Minimap2 (min. occurrence cutoff: {min_mid_occ:,})')
         data_mm2 = minimap2utils.align(
-            path_fasta, self._dir_db / 'loci_repr.fasta', include_cigar=False, threads=threads
+            path_fasta, path_db, include_cigar=False, threads=threads, min_mid_occ=min_mid_occ
         )
         logger.info(f'{len(data_mm2):,} seed alignments')
         if self._save_minimap2:
@@ -234,14 +264,12 @@ class AlleleQueryMinimap2:
             return {locus: model.QueryResult(model.ALLELE_MISSING, [], tags=[model.Tag.ABSENT]) for locus in all_loci}
 
         # Extract loci
-        data_mm2['locus'] = data_mm2['sseqid'].str.rsplit('_', n=1).str[0]
+        data_mm2['locus'] = data_mm2['sseqid'].map(dbutils.get_locus_from_id)
         nb_loci = len(data_mm2['locus'].unique())
         logger.info(f"{nb_loci:,}/{len(all_loci):,} loci aligned ({100 * nb_loci / len(all_loci):.2f}%)")
 
         # Calculate query string and remove duplicates
-        data_mm2[['query_name', 'query_start', 'query_end']] = data_mm2.apply(
-            lambda x: AlleleQueryMinimap2.__get_coord(x), axis=1, result_type='expand'
-        )
+        AlleleQueryMinimap2._add_query_coords(data_mm2)
         data_mm2.drop_duplicates(['locus', 'query_name', 'query_start', 'query_end'], keep='first', inplace=True)
         logger.info(f'{len(data_mm2):,} seed alignments (without duplicates)')
 

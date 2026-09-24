@@ -2,9 +2,9 @@ import unittest
 from importlib.resources import files
 from pathlib import Path
 
-from mist.app import model
+from mist.app import NAME_REPR_INFO, model
 from mist.app.query.allelequeryminimap import AlleleQueryMinimap2, MultiStrategy
-from mist.app.utils import testingutils
+from mist.app.utils import dbutils, testingutils
 from mist.scripts.mistindex import MistIndex
 
 
@@ -148,6 +148,27 @@ class TestAlleleQuery(unittest.TestCase):
         for locus, res in result_by_locus.items():
             expected_tag = TestAlleleQuery.get_expected_tag(allele_by_locus[locus])
             self.assertIn(expected_tag, res.tags, f"No exact match for {locus}")
+
+    def test_min_mid_occ(self) -> None:
+        """
+        Tests that the minimizer occurrence cutoff scales with the largest nb. of representative alleles per locus.
+        :return: None
+        """
+        caller = AlleleQueryMinimap2(dir_db=self.db_path)
+        with open(self.db_path / 'loci_repr.fasta') as handle:
+            loci = [dbutils.get_locus_from_id(line[1:].strip()) for line in handle if line.startswith('>')]
+        nb_repr_max = max(loci.count(locus) for locus in set(loci))
+        min_mid_occ_expected = max(
+            AlleleQueryMinimap2.MIN_MID_OCC_DEFAULT, AlleleQueryMinimap2.MID_OCC_FACTOR * nb_repr_max
+        )
+
+        # Counts stored at index time
+        self.assertTrue((self.db_path / NAME_REPR_INFO).exists())
+        self.assertEqual(caller._get_min_mid_occ(), min_mid_occ_expected)
+
+        # Fallback for databases created without the counts file
+        (self.db_path / NAME_REPR_INFO).unlink()
+        self.assertEqual(caller._get_min_mid_occ(), min_mid_occ_expected)
 
 
 if __name__ == '__main__':

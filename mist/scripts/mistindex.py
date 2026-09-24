@@ -8,7 +8,7 @@ from typing import Any
 
 from Bio import SeqIO
 
-from mist.app import NAME_DB_INFO
+from mist.app import NAME_DB_INFO, NAME_REPR_INFO
 from mist.app.loggers.logger import logger
 from mist.app.utils import (
     clusterutils,
@@ -177,6 +177,10 @@ class MistIndex:
         )
         minimap2utils.create_index(path_fasta_out)
         logger.info(f'Combined FASTA file created: {path_fasta_out} ({nb_seqs:,} sequences)')
+
+        # Store the nb. of representative alleles per locus (used to set the Minimap2 occurrence cutoff)
+        with open(dir_out / NAME_REPR_INFO, 'w') as handle:
+            json.dump({'nb_repr_by_locus': dbutils.count_alleles_by_locus(path_fasta_out)}, handle, indent=2)
 
         # Create a TXT file with all loci
         self._copy_db_info(dir_out)

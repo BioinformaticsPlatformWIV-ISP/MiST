@@ -3,6 +3,7 @@ import shutil
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
 from Bio import SeqIO
 
 from mist.app.loggers.logger import logger
@@ -64,14 +65,52 @@ class ClusterSplit:
         path_nucmer = nucmerutils.nucmer(path_fasta_ref, path_fasta, self._dir_temp, debug=self._debug)
         data_coords = nucmerutils.show_coords(path_nucmer, debug=self._debug)
 
-        # Calculate the offset
-        data_coords['offset'] = data_coords['[S2]'] - data_coords['[S1]']
-        if len(data_coords['offset'].unique()) == 1:
+        # Select one sequence for each combination of start and end offsets that differs from the representative
+        offsets_by_seq_id = ClusterSplit.calculate_offsets(data_coords)
+        seq_id_by_offsets = {}
+        for member in cluster_data['members']:
+            offsets = offsets_by_seq_id.get(member['seq_id'])
+            if (offsets is not None) and (offsets != (0, 0)):
+                seq_id_by_offsets.setdefault(offsets, member['seq_id'])
+        if len(seq_id_by_offsets) == 0:
             return []
-        seq_ids = [d.iloc[0]['[TAGS]'] for offset, d in data_coords.groupby('offset') if offset != 0]
+        seq_ids = list(seq_id_by_offsets.values())
         logger.debug(f"Splitting cluster {cluster_name} ({self._locus}) into {len(seq_ids) + 1} groups")
         logger.debug(f"Novel representative(s): {seq_ids}")
         return [self._seq_by_id[seq_id] for seq_id in seq_ids]
+
+    @staticmethod
+    def calculate_offsets(data_coords: pd.DataFrame) -> dict[str, tuple[int, int]]:
+        """
+        Calculates the start and end offset of each sequence compared to the representative.
+        :param data_coords: Parsed show-coords output
+        :return: Offsets (start, end) by sequence id
+        """
+        data = data_coords.copy()
+
+        # Use the coordinates on the reverse complement for alignments on the reverse strand
+        is_rev = data['[S2]'] > data['[E2]']
+        data['s2'] = data['[S2]'].where(~is_rev, data['[LEN Q]'] - data['[S2]'] + 1)
+        data['e2'] = data['[E2]'].where(~is_rev, data['[LEN Q]'] - data['[E2]'] + 1)
+        data['offset_start'] = data['s2'] - data['[S1]']
+        data['offset_end'] = (data['[LEN Q]'] - data['e2']) - (data['[LEN R]'] - data['[E1]'])
+
+        # Only retain alignments consistent with the longest alignment of each sequence
+        data_main = data.sort_values('[LEN 2]', ascending=False).drop_duplicates('[TAG Q]')
+        main = data_main.set_index('[TAG Q]').loc[data['[TAG Q]']].set_axis(data.index)
+        is_before = (data['[S1]'] < main['[S1]']) & (data['s2'] < main['s2'])
+        is_after = (data['[E1]'] > main['[E1]']) & (data['e2'] > main['e2'])
+        is_main = data.index.isin(data_main.index)
+        data = data[(is_rev == (main['[S2]'] > main['[E2]'])) & (is_before | is_after | is_main)]
+
+        # Select the outermost alignments (ties: longest alignment)
+        data_first = data.sort_values(['s2', '[LEN 2]'], ascending=[True, False]).drop_duplicates('[TAG Q]')
+        data_last = data.sort_values(['e2', '[LEN 2]'], ascending=[False, False]).drop_duplicates('[TAG Q]')
+        offset_end_by_seq_id = dict(zip(data_last['[TAG Q]'], data_last['offset_end']))
+        return {
+            str(seq_id): (int(offset_start), int(offset_end_by_seq_id[seq_id]))
+            for seq_id, offset_start in zip(data_first['[TAG Q]'], data_first['offset_start'])
+        }
 
     def export_seqs_from_cluster(self, cluster_data: dict[str, Any], only_first: bool = False) -> Path:
         """

@@ -69,12 +69,14 @@ extend-exclude = [
 [tool.ruff.lint]
 select = ["D", "I", "F", "PL", "UP", "W"]
 ignore = [
-  "D100", "D104", "D200", "D204",
-  "D205", "D400", "D401", "PLW1510"
+  "D100", "D104", "D200", "D204", "D205", "D400", "D401", "PLW1510", "PLW2901"
 ]
 
 [tool.ruff.lint.pydocstyle]
 convention = "pep257"
+
+[tool.ruff.lint.pylint]
+max-args = 10
 
 [tool.ruff.format]
 quote-style = "preserve"
